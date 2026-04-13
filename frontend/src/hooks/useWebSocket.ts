@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ClientMessage, ConnectionState, ServerMessage } from '@/lib/types';
 
-const WS_URL = 'ws://localhost:8000/ws';
+const WS_URL = 'ws://127.0.0.1:8000/ws';
 // Spec §7.2: Heartbeat every 30s
 const HEARTBEAT_INTERVAL_MS = 30_000;
 // Spec §7.2: Exponential backoff — 1s, 2s, 4s, max 30s
