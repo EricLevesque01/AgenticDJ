@@ -1,0 +1,1322 @@
+--- PAGE 1 ---
+Data Science and Engineering (2026) 11:30–52
+https://doi.org/10.1007/s41019-025-00313-x
+RESEARCH PAPERS
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery
+Claudia Diamantini1 · Alessandro Mele1 · Alex Mircoli1 · Domenico Potena1 · Cristina Rossetti1,2 · Emanuele Storti1
+Received: 16 February 2025 / Revised: 10 July 2025 / Accepted: 12 August 2025 / Published online: 13 November 2025
+© The Author(s) 2025
+Abstract
+Discovering relevant datasets in large, heterogeneous data ecosystems, such as Data Lakes or Data spaces, is a complex
+task, often hindered by a lack of transparency and user-centric explanations in the discovery process. Explainability is
+critical for enabling users to understand why specific datasets are recommended, what information they contain, and
+how they align with user-defined criteria and preferences. To address these challenges, this work proposes a novel Graph
+Retrieval-Augmented Generation (Graph RAG) framework to enhance explainability in a platform for discovery of sum-
+mary data sources. The proposed approach leverages a Knowledge Graph (KG) to interpret user requests, extracting
+relevant contextual information. These enriched requests are then transformed by a Large Language Model (LLM) into
+actionable dataset queries for a dataset discovery platform. Candidate solutions are evaluated and enriched with statisti-
+cal insights on value distributions and contextual knowledge from the KG. Finally, the LLM ranks these solutions based
+on user preferences, producing a final report. This dual strategy of query enrichment and contextual explanation fosters
+transparency and enhances user understanding of the discovery process. We demonstrate the effectiveness of the approach
+through an experimental validation, highlighting its potential to improve both the accuracy and interpretability of dataset
+discovery.
+Keywords Dataset discovery · Knowledge graph · Retrieval augmentation generation · LLM · Multidimensional model
+1 Introduction
+In today’s data-driven landscape, organizations increas-
+ingly rely on vast and heterogeneous collections of datas-
+ets to support analytical and decision-making processes.
+Enabling technologies feature both centralized Data Lakes
+Emanuele Storti and decentralized Data Spaces, which have a great potential
+e.storti@univpm.it
+to facilitate data sharing and integration across organiza-
+Claudia Diamantini tions, and offer flexible and scalable storage for diverse data
+c.diamantini@univpm.it
+sources. However, their flexibility introduces significant
+Alessandro Mele challenges in data management [49], including achieving
+a.mele@pm.univpm.it
+full data interoperability and making sense of disparate data
+Alex Mircoli through valuable and interpretable insights. Key factors in
+a.mircoli@univpm.it
+addressing these challenges include the ability to represent
+Domenico Potena heterogeneous datasets and their metadata as a support for
+d.potena@univpm.it
+data governance, as well as to provide mechanisms for dis-
+Cristina Rossetti covering, accessing, and analyzing relevant datasets. Over-
+cristina.rossetti@polito.it
+coming these challenges requires not only effective dataset
+1 Dipartimento di Ingegneria dell’Informazione, Università discovery approaches but also transparent and explainable
+Politecnica delle Marche, via Brecce Bianche, systems that help users understand why specific datasets are
+Ancona 60131, Italy relevant to their queries and how they align with analyti-
+2 Dipartimento di Automatica e Informatica, Politecnico di cal goals. As a matter of fact, providing clear, user-centric
+Torino, Corso Duca degli Abruzzi, 24, Torino 10129, Italy
+1 3
+
+--- PAGE 2 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 31
+explanations is indeed crucial for improving transparency, sources capable of addressing the user request, are further
+facilitating informed decision-making, and enabling effec- enriched with detailed metadata, including value distribu-
+tive utilization of data resources. While explainability is a tions (e.g., the percentage of records associated with a spe-
+key aspect of dataset discovery, it remains underexplored in cific value) and semantic relationships (e.g., hierarchical
+most existing systems. Current solutions do not often ade- groupings of entities, such as Italy being part of Europe).
+quately contextualize results and, when multiple datasets These enriched results are then processed by the LLM for
+meet query criteria, users are left with little support in com- ranking them based on explicit user preferences, ensuring
+paring alternatives or understanding the content and struc- alignment with analytical priorities (e.g., datasets focused
+ture of the results and the relevance to their requests. This on European countries). By integrating this dual-layered
+is particularly critical for huge repositories of summary data approach of query contextualization and result enrichment,
+sources, namely datasets including statistical content. Such the proposed framework is capable of both interpreting user
+peculiar data sources are characterized by a set of measures requests related to dataset discovery and addressing the crit-
+(also called indicators in the following), that is data of inter- ical need for result explainability. This also aligns with the
+est for the analysis that are aggregated along a number of principles of Data Spaces by promoting semantic interop-
+dimensions, typically at different granularities called levels. erability, contextual enrichment, and transparency in data
+Such data sources are also termed data cubes. The integra- governance processes [33].
+tion of different data cubes may be done by joining data The contributions of this paper are as follows:
+items on the (sub-) set of dimensions, in order to compare
+and analyse different measures. Inconsistent, sparse, or ● we define a Knowledge Graph representation model.
+noisy data cubes are more the rule than an exception, and Part of the graph captures static (1) background knowl-
+can make data discovery and integration a time-consuming edge, including definitions of dimensions and indica-
+and frustrating endeavor. tors. Another part describes dynamic (2) source-related
+Let us consider for example a set of data sources related knowledge including metadata for the characterization
+to global pollution, and let us suppose a user wants to of data sources, including source profiles, i.e., summary
+compare particulate matter emissions, namely PM and representations of their content aligned with the KG.
+2.5
+PM 10 , on different countries and years, focusing in particu- ● We introduce a novel Graph RAG approach that inte-
+lar on European countries and the last 3 years. Besides tradi- grates Knowledge Graphs and LLMs to contextualize
+tional issues like schema heterogeneity (e.g. PM column and enrich the user request. The LLM is exploited for
+2.5
+can be named particulate_matter_2.5 in a source, and multiple objectives: (1) to translate the user request,
+Fine_particulate_matter on another) the production of expressed in natural language, in a properly formatted
+data at different pace, or at different aggregation levels can query delivered to the dataset discovery platform, (2) to
+make the integration of apparently joinable sources a useless filter and rank the results according to the user prefer-
+effort, producing a table formed of very few results, and/ ences and (3) to enhance the explainability of dataset
+or concentrated on ranges of level values of little interest. discovery results by providing statistical and semantic
+Hence, in the presence of different alternatives, discovery insights to users.
+should be able to return the user a list of possible alternative ● We perform an experimental evaluation of the proposed
+datasets, ranked by relevance with respect to user preference approach, comparing multiple LLMs and different sce-
+(such as prioritizing datasets covering countries in Europe narios to assess its effectiveness across key dimensions,
+and years 2023-2025, and be able to explain the adopted including the correctness of the provided ranking and
+criteria in a synthetic, user-comprehensible form. its explainability, in terms of coherence, general quality
+To address these issues, we propose a novel approach to and compactness of the responses.
+enhance explainability in a platform for discovering sum-
+mary data sources, that combines the expressive capabilities The manuscript extends previous work on dataset discov-
+of Knowledge Graphs (KGs) and advanced Natural Lan- ery [13] by extending the representation capabilities of the
+guage Processing through a Graph Retrieval-Augmented Knowledge Graph and by building a Graph RAG solution
+Generation (RAG) approach. A KG is leveraged to inter- upon it , leveraging the Knowledge Graph to extract relevant
+pret and contextualize user requests expressed in natural contextual information. This helps to improve the usability,
+language, extracting dimensions, levels, and indicators precision and interpretability of dataset recommendations.
+relevant to the request. This enriched query is then trans- A further extension involves integrating user preferences in
+lated by a Large Language Model (LLM) into actionable the request, ensuring the results align with specific analyti-
+dataset queries targeting the dataset discovery platform. The cal goals.
+query results, in terms of alternative combinations of data
+1 3
+
+--- PAGE 3 ---
+32 C. Diamantini et al.
+The rest of this paper is organized as follows. Section 2 unionable with a search table T on some subset of attributes,
+reviews related work in dataset discovery, explainability of by considering the similarity between domains and values
+human-agent systems, Knowledge Graphs, and the use of of the attributes. The approach relies on Locality-Sensitive
+Graph RAG. Section 3 describes the data model of the plat- Hashing (LSH, Zhu et al. [57]) to obtain an approximate yet
+form, while Sect. 4 discusses the proposed methodology, efficient solution. Other work focuses on joinable dataset
+detailing the Graph RAG framework and its components. search, e.g., D3L [6] in which both schema– and instance–
+Section 5 evaluates its performance through experiments. based features are used [44], or Auctus [8] where data sum-
+Finally, Sect. 6 concludes the paper and outlines future maries are in part exploited. Finally, some papers propose
+research directions. a query-based search, which relies on a specific query lan-
+guage and a model, that in most cases is a graph [9, 17,
+19]. As an example, a Knowledge Graph is exploited in
+2 Related Work Aurum [9] to profile the data sources in a repository and
+find similarity-based relationships and primary-foreign key
+Modern data ecosystems demand robust mechanisms candidates. For each column, a profile is built by generat-
+enabling end-users to collect, explore, and analyze data ing signatures from extracted information (e.g., cardinality,
+sources suited to their specific needs. The effectiveness of data distribution, MinHash [7]). These signatures are then
+these solutions is deeply influenced by how metadata asso- indexed using Locality-Sensitive Hashing: if two columns
+ciated with data sources is managed. Metadata models play share a bucket, an edge is created between the correspond-
+a pivotal role in representing essential information such as ing nodes, with the similarity value as the edge weight.
+data provenance, structure, semantics, and relationships, Users can then search datasets using a Source Retrieval
+thereby facilitating advanced dataset discovery functional- Query Language. The KGLac architecture [19] enhances
+ities and enhancing result explainability. Metadata, in the data discovery operations, such as schema similarity search
+form of a graph, can then be leveraged to enrich Retrieval- or joinable tables discovery, through a Knowledge Graph
+Augmented Generation for LLMs, ultimately aimed to where stored relationships are computed exploiting meta-
+deliver more relevant results and foster a deeper under- data by a data profiler which calculates content-based and
+standing of the relationships and patterns within metadata. semantic-based embeddings of datasets.
+In the following, we survey relevant related literature on A related problem is the correlated dataset search, where
+these topics. an additional challenge arises: besides identifying possible
+joins, it is also necessary to compute, or estimate, the join-
+2.1 Dataset Discovery and Exploration ability (or correlation). As a measure of joinability, most
+approaches propose the Jaccard Index and the Jaccard Con-
+Dataset discovery is the process which allows users to find tainment similarity. While some algorithms provide an exact
+data sources that are relevant to a user query. This process solution to the problem, e.g., JOSIE [58], scalability issues
+can be challenging for several reasons, such as the hetero- can be addressed by providing approximate answers, e.g.,
+geneities of data sources or the huge amount of stored data. Lazo [16], Asymmetric MinWise Hashing (ALSH, Shrivas-
+Additionally, the user might not know in advance what to tava and Li [48]) and LSH Ensemble [57], balancing preci-
+specifically search, therefore tools to effectively support the sion and recall. Such techniques apply indexing structures
+end users in discovering new data sources are needed. and data sketches (typically through hashing) to reduce the
+The simplest approach for dataset discovery, widely dimensionality of the datasets and perform time-effective
+employed by data repositories and for web tables, relies on estimation of the Jaccard index or the containment set. In
+keyword search. This method can be applied to metadata or, a previous work of ours [13], we presented a framework
+when accessible, to the dataset’s source content (see survey for analytic query-driven dataset discovery in Data Lakes,
+by Chapman et al. [10]). In a second group of approaches, focusing on LSH Ensemble-based efficient integration and
+the input for the search is represented by a dataset, which mapping of summary data sources to a Knowledge Graph,
+can be provided by the user or produced as a result of a which serves as a global model following a Local-as-View
+previous analysis task. In this way, source integration and approach. Analytic queries are expressed in terms of target
+source discovery are addressed in a combined way, follow- indicators and relevant dimensions, and the system identi-
+ing the idea of finding datasets that are similar to a query fies combination of suitable data sources. Compared to the
+dataset and that can be integrated in some way (either by mentioned approaches, the framework is capable of pre-
+joins, unions or aggregates). For instance, in the context of selecting only relevant sources by exploiting mappings,
+open datasets, Table Union Search [34] aims at identify- avoiding pair-wise comparisons among a large number of
+ing the k tables that have the highest likelihood of being sources.
+1 3
+
+--- PAGE 4 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 33
+2.2 Explainability in Human-Agent Systems 2.3 Data Models and Vocabularies for Profile
+Representation
+In the domain of human-agent interaction, explainability
+has emerged as a critical non-functional requirement, essen- Leveraging well-designed metadata models ensures that
+tial for promoting transparency, accountability, and trust- data from diverse sources can be integrated, making it easier
+worthiness. It also contributes to the overall usability and for users to navigate large and complex datasets within data
+auditability of software systems [42]. Despite its recognized ecosystems. Therefore, the role of metadata management
+importance, a precise and universally accepted definition of extends beyond simple documentation, functioning as a
+explainability from a software engineering perspective is cornerstone for the usability, interpretation, and interopera-
+currently missing. Likewise, systematic methods for its elic- bility of data systems. Effective data governance, therefore,
+itation and validation are still under development, although requires a well-defined metadata model that aligns with the
+recent efforts have attempted to conceptualize and model its FAIR principles (Findable, Accessible, Interoperable, and
+various dimensions [5]. Reusable) [53]. In the context of Data Lake literature [45],
+Research on explainability has predominantly gained functional metadata are classified by Oram et al. [37] as
+momentum within the context of machine learning and arti- technical (i.e., data format, structure or schema), operational
+ficial intelligence (e.g., XAI), where systems often produce (i.e., data location, file size, number of records) and busi-
+non-deterministic outputs subject to generalization, abstrac- ness-related (i.e., field names and explanations), although
+tion, inference, and ambiguity. Nevertheless, explainabil- such classes are not entirely distinct and can overlap [14].
+ity is equally pertinent to other classes of systems, such as On the other hand, structural metadata are associated with
+information retrieval and recommendation engines, espe- the concept of object, a generalization of a data source that
+cially if they are supported by AI models, such as LLMs. can be structured (e.g., SQL tables), semi-structured (e.g.,
+In these contexts, providing clear justifications for system XML, JSON), or unstructured (e.g., images, audio or video).
+outputs, especially in relation to user queries or prefer- Metadata are also core components of other data-shar-
+ences, is essential to ensuring the perceived appropriate- ing ecosystems like Data Space architectures. In fact,
+ness and relevance of results. As several work report, e.g. Data Spaces add decentralized governance to Data Lakes,
+Chapman et al. [10], even when users find a solution to a facilitating the sharing and exchange of data across differ-
+query, they might struggle with issues like trustworthiness ent organizations without the need of a single, centralized
+(e.g., concerns about data quality, accuracy, or reliability) repository. This makes FAIR principles even more impor-
+or may encounter practical difficulties in using these data- tant and challenging.
+sets, e.g. for unclear documentation. In these cases, much Several vocabularies and ontologies have been proposed
+time risks to be devoted to examining and comparing results in the literature to describe (statistical) data sources [21].
+[31]. To this aim, text summaries are often used, along with Among them, “Vocabulary of Interlinked Datasets” (VoID)1
+summary statistics or visualisations, as a way to explain a is an RDF Schema vocabulary for expressing high-level
+complex result to users. In particular, conversational search metadata about RDF datasets, such as the vocabularies used
+and LLMs have proven particularly useful in cases where in the dataset and the size of the dataset. Similarly, Dublin
+users have insufficient background knowledge [46]. In Core Metadata Initiative (DCMI) Terms2 aims at interoper-
+more complex cases, the information retrieval task at hand able metadata descriptions for resources in the Web, also
+may require an entire set of results from multiple different including basics data provenance metadata. RDF Data
+sources with interdependencies, as in the case of a dataset Cube3 is an RDF Schema vocabulary based on the SDMX
+discovery platform. To the best of our knowledge, however, standard designed for representing statistics in a multidi-
+no prior work has explicitly addressed explainability as a mensional attribute space, while DCAT4 is an RDF vocabu-
+first-class objective in dataset discovery. Existing methods lary designed to facilitate interoperability between data
+often focus on usability or metadata-driven retrieval, but catalogues published on the Web. For each source within the
+fall short of providing user-centered explanations justifying catalogue, some basic metadata are provided, i.e., resource
+dataset recommendations. Indeed, existing dataset discov- URL, title, file type and dimension. For what concerns tools
+ery platforms either provide no explanation of the results for statistics generation, LODstat [2] provides schema and
+to the user or offer only very limited support, e.g., visual data statistics for RDF data sources, i.e., number of triples,
+exploration of datasets is possible in Auctus [8], including
+previews, summaries, and spatial visualizations but only for 1 https://www.w3.org/TR/void/.
+single sources, while KGLac [19] offers entity-level trac- 2 h t t p s : / / w w w . d u b l i n c o r e . o r g / s p e c i fi c a t i o n s / d u b l i n - c o r e / d c m i - t e r m s /
+ing through KG connections, and Aurum [9] supports prov- #.
+enance and lineage tracing for each match. 3 h t t p s : / / w w w . w 3 . o r g / T R / v o c a b - d a t a - c u b e /.
+4 h t t p s : / / w w w . w 3 . o r g / T R / v o c a b - d c a t - 3 /.
+1 3
+
+--- PAGE 5 ---
+34 C. Diamantini et al.
+triples containing blank nodes, or literal values with the verbosity and naturally represent connections between enti-
+respective data types. PROLOD++ [1] is a tool for profil- ties (e.g., documents or complex objects). To combine the
+ing and mining RDF data sources. Profiles provide statistics potential of graphs with traditional RAG, Graph Retrieval-
+such as frequency counts and distributions related to sub- Augmented Generation (Graph RAG) techniques have
+jects, predicates and objects. Similarly, RDFStats [28] is a been proposed in the literature [15, 23, 32]. According to
+generator for statistics of RDF data sources, which provides Procko and Ochoa [40], Graph RAG techniques can be
+histograms of classes, properties and value types. In Zhao categorized into three main types: Graph-Based Indexing,
+et al. [56], a set of metadata to support data discovery and Graph-Guided Retrieval, and Graph-Enhanced Generation.
+analysis in a Data Lake context are proposed. Metadata like Graph-Based Indexing techniques aim at constructing the
+data types, distribution of values, relationships between data initial knowledge base, which can be achieved either by
+sources such as similarities, are computed to provide users building the graph database from scratch for specific tasks
+with a better understanding of data in order to select the or leveraging specific Web resources such as Open Knowl-
+appropriate datasets for their purposes. A measure of simi- edge Graphs. A crucial aspect is the definition of indices
+larity/dissimilarity among datasets is computed and stored between the entities, which helps improve the efficiency and
+as a metadata to support dataset search. We emphasize that effectiveness of the search stage. Graph-Guided Retrieval,
+the mentioned vocabularies and tools do not fully provide on the other hand, focuses on selecting the candidate graphs
+support for the type of metadata we are interested in, since from external graph databases. Finally, Graph-Enhanced
+they are not tailored to the description of the peculiar char- Generation aims to combine the retrieved graph data with
+acteristics of multidimensional data sources, namely facts, the query to enhance the quality of the result. Graph RAG
+indicators and dimensions. techniques are widely adopted in various NLP tasks, e.g.,
+Question Answering (QA), Information Extraction, and Dia-
+2.4 Graph-Based Retrieval-Augmented Generation logue systems [39]. Most of the literature in the Graph RAG
+scenario is concerned with QA [40], traditionally addressed
+Large Language Models (LLMs) marked a revolution in the by Knowledge Graphs. The combination of LLMs with
+field of Natural Language Processing (NLP), due to their Knowledge Graph Question Answering (KGQA) frame-
+capabilities in language processing and text generation. The works is a commonly researched application of RAG [3, 15,
+training of an LLM consists of providing the model with 18, 47, 54]. Among them, G-Retriever [18] offers a flexible
+large amounts of textual data (corpora) as input. However, QA framework to interact with a graph through a conver-
+this paradigm suffers from certain issues: (i) the LLM will sational interface and addresses the issue of hallucination
+incorporate the knowledge acquired up to that point, and with a Prize-Collecting Steiner Tree optimization problem.
+(ii) since corpora are general-purpose texts, the model Bahr et al [3] developed a framework to leverage analytical
+could easily fail into hallucinations [24] with domain-spe- and semantic QA capabilities on Failure Mode and Effects
+cific queries. Since training LLMs is extremely expensive, Analysis (FMEA) data, by defining an ontology for FMEA
+incorporating custom knowledge into them is a nontrivial observations, an algorithm for creating vector embeddings
+challenge. Several solutions have been proposed in the lit- from the FMEA KG, and a KG enhanced RAG framework.
+erature to address this problem, including fine-tuning, i.e., KG-RAG [43] is a framework for KGQA which derives a
+training the LLM in a task-specific dataset [20, 22, 38, 41], Knowledge Graph from unstructured text and then performs
+Retrieval-Augmented Generation (RAG), i.e., enriching the information retrieval over it. The retrieval methodology
+prompt with information extracted from external knowl- leverages the Chain of Explorations (CoE) algorithm which
+edge bases [30], and prompt engineering, i.e., supporting benefits from LLMs reasoning to explore nodes and rela-
+the model by providing detailed instructions for the task tionships within the Knowledge Graph sequentially.
+[25, 52, 55]. RAG emerges as dominant solution, allowing
+updates to the LLM knowledge base with no necessity of re-
+training the model. Specifically, RAG dynamically queries 3 Data Model
+external knowledge bases, extracts domain-specific knowl-
+edge, and incorporates it into the LLM output. Although In this work, we consider a data ecosystem comprising mul-
+RAG achieves excellent results and is widely used, it is tiple data sources. Since the focus is on summary/statistical
+highly sensitive to noise in documents [40] and suffers from datasets, we assume a generic structure based on the mul-
+some limitations in scenarios where documents are, in some tidimensional model [26], where indicators are described
+way, interconnected each others, e.g., social media postings, along dimensional hierarchies. The approach relies on a
+research papers [23, 39]. Graphs represent the candidate Knowledge Graph based on the RDF representation model.
+data structures for modeling knowledge bases: they reduce The Knowledge Graph is structured in two distinct layers,
+1 3
+
+--- PAGE 6 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 35
+called Background Knowledge Graph (BKG) and Source- Background knowledge is encoded in the BKG and is
+related Knowledge Graph (SKG). The former provides defi- based on KPIOnto5, an OWL2-RL ontology that provides
+nitions of indicators and dimensions, that constitute stable the terminology for defining indicators and some addi-
+information within the data ecosystem. The latter provides tional properties (e.g., description, unit of measure, objec-
+a description of source metadata, mappings to elements of tive), along with dimensional hierarchies and members.
+BKG, as well as source profiling. As such, it is specific to In particular, class defines a level which
+kpi:Level
+each dataset and more subject to change. includes a number of s and belongs to a
+kpi:Member
+. The Object Property
+kpi:Dimension kpi:rollUp
+3.1 Background Knowledge Graph encodes the partial order relation among levels. In the bot-
+tom of Fig. 2, an example is reported on the representation
+Hereby, we provide the notions of dimension, related levels of the dimensional hierarchy for the dimension GEO, where
+and members, and indicators. namespace “kpi” refers to KPIOnto and “bkg” to the BKG.
+Definition 1 (Dimension) A dimension i D is a perspec- 3.2 Source-related Knowledge Graph
+D ∈
+tive of analysis and is defined as the set
+D
+i =
+{
+LD1 i,...,L Dn i
+}
+,
+where LDj i is a (dimensional) level of
+D
+i
+. We provide here the definition of data source and the notion
+of profile, along with the description of the graph schema
+adopted for their representation.
+For the sake of simplicity, in the following we refer to a
+dimensional level as L , when the dimension is clear from Definition 3 (Data Source) A data source is defined as
+j
+the context. Levels of are organized in a hierarchy S = a ,...,a where a S is an attribute and
+i k 1 n i k
+D { } ∈
+through a partial order , a reflexive, antisymmetric, and ν(a )= v ,...,v is the set of values of a .
+L i 1 m i
+≤ { }
+transitive relation defined over . To make an example,
+i
+D
+given levels region and country of the geographic dimen- The characterization of a source includes also the indicators
+sion (GEO), the relation region country holds. and levels of the Knowledge Graph which the attributes of
+L
+≤
+Given a level L j , we denote by δ(L j )= { m L 1 j,...,m L q j } the source can be mapped to. With reference to the example
+case, let us assume a data source includes attributes nation
+the set of its members, i.e., elements of a level. Likewise, a
+member will be denoted as m , whenever the dimensional and day that can be mapped respectively to the levels GEO.
+p
+country and TIME.day, and an attribute particulate_mat-
+level it belongs to is evident from the context. For example,
+Venice δ(city) states that Venice is a member of the level ter_2.5 that can be mapped to the indicator PM 2.5 . As dis-
+∈
+cussed in [13], mappings for dimensional attributes can be
+city.
+discovered in a semi-automatic fashion, leveraging approxi-
+Given a dimension , levels L ,L and a partial mate solutions based on hashing schemes. This approach
+i j
+D ∈D
+order relation on , a relation partOf can be identifies, for a given attribute a , the dimensional level
+≤
+L
+D
+Li,Lj i
+defined among the set of corresponding members δ(L ) and L whose members δ(L ) most closely matches its values
+i j j
+δ(L ). This relation enables the roll-up operator along . ν(a ). We denote by ind(S ) and dim(S ) the set of indica-
+j i k k
+D
+tors and dimensions of the Knowledge Graph, respectively,
+Definition 2 (Indicator) An indicator ind is a quantita- that are mapped to attributes in S .
+i k
+∈I
+tive measure that can be related to one or more dimensions A further relevant source-related information regards
+j
+D. a summary representation of the content of a data source,
+D ∈
+namely its profile.
+In our example case about global pollution, background
+knowledge consists of the geographical dimension (GEO) Definition 4 (Profile item) Given a dimension D, a
+D ∈
+and the temporal dimension (TIME). GEO is articulated in level L , a source S , an attribute a S mapped
+j k i k
+∈D ∈
+a hierarchy composed of four dimensional levels (city to L and a member m δ(L ), the profile item of
+L j p j
+≤ ∈
+region country continent), while TIME is composed a for the member m is defined as m ,y , where
+L L i p p p
+≤ ≤ ⟨ ⟩
+of three dimensional levels (day month year). Fur- y = v ν(a ):v =m .
+L L p i p
+≤ ≤ |{ ∈ }|
+thermore, some indicators are defined, namely CO , PM
+2 2.5
+and PM . We refer to Ψ(a )= m ,y ,..., m ,y as the pro-
+10 i 1 1 n n
+{⟨ ⟩ ⟨ ⟩}
+file of the attribute a , i.e., the set of its profile items. The
+i
+5 https://w3id.org/kpionto/.
+1 3
+
+--- PAGE 7 ---
+36 C. Diamantini et al.
+profile represents the frequency with which each value of a as the number of dimensions are represented through the
+i
+occurs. It is defined only for attributes that can correctly be property , while the cardinality through the
+dl:domains
+mapped to dimensional levels. property . Further metadata include the file path
+dl:items
+Source-related knowledge is encoded in the SKG based of the data source ( ), provenance and lin-
+dl:location
+on an ontological vocabulary. The vocabulary defines eage information, and structural metadata. Structural meta-
+classes and properties for the definition of a source, to data define each attribute as an instance of the
+dl:Domain
+represent its structure in terms of attributes, and to map class, with a connection with its source through the property
+an attribute to the corresponding indicator or level in the .
+dl:contains
+BKG. The vocabulary allows for a uniform representa- Attributes related to an indicator or a dimension, on the
+tion of heterogeneous sources. This accommodates both other hand, are instances of the class. A prop-
+Domain
+structured data sources (such as SQL databases) and semi- erty allows to map the attribute to a corresponding
+mapTo
+structured data sources (such as JSON or XML files) in a indicator or level in the BKG. This is exemplified in Fig.
+consistent manner. This uniformity simplifies the integra- 2 for an attribute mapped to level GEO.country. A profile
+tion and querying of diverse datasets, thus enhancing over- for a dimensional attribute is defined as an instance of the
+all interoperability. An example is shown in Fig. 1, where class and includes summary information on its
+DProfile
+the prefix “dl” denotes the namespace for the vocabulary, value distribution as a set of (corre-
+DProfileElement
+while “skg” refers to the namespace of the SKG. Each data sponding to profile items). In turn, this is linked to a mem-
+source is represented as an instance of the class, ber (property ) and a number of occurrences
+Source toMember
+which extends the class from the VoID (property ). A special profile element is
+void:Dataset dl:frequency
+vocabulary to provide enhanced integration capabilities. defined for all values that cannot be mapped to any member.
+Descriptive metadata are reused from the DCMI standard In this case, a special value is adopted. In the
+dl:others
+and include the of the source, its , example in Fig. 2, the “nation” attribute includes 282501
+title description
+the file and a set of s (typically linking instances of member “Germany” of the GEO.country level,
+format subject
+to DBpedia resources). Additional metadata include 283549 instances of member “Italy”, and 10345 other val-
+cre-
+, and any s, as well as ues which cannot be aligned to any member.
+ator publisher contributor
+the creation and the . Basic statistics such
+date license
+F ig. 1 Example of source-related
+knowledge representation (source
+metadata) in the SKG. Dashed
+lines link to attribute metadata
+1 3
+
+--- PAGE 8 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 37
+Fig. 2 Example of source-related knowledge representation in the SKG (attribute metadata)
+4.1 Request Formulation and Enrichment
+4 Methodology
+The initial step of the workflow involves the definition of
+The proposed approach for enhancing explainability in the user request and its enrichment through background
+dataset discovery is structured around a Graph Retrieval- knowledge from the Knowledge Graph, with the aim to pro-
+Augmented Generation (Graph RAG) framework. As duce the starting prompt to the LLM.
+shown in Fig. 3, the architecture integrates multiple com- The request, representing the objective of the analysis, is
+ponents to transform user requests in natural language into expressed by the user in natural language. We do not assume
+actionable and explainable dataset discovery results. The that the user has full knowledge of the indicators available
+contextualization of the user request ensures the system in the data sources or the analysis dimensions these sources
+fully understands the user’s intent and prepares the request include, nor their hierarchical structure across levels. Simi-
+for downstream processing. larly, while the users may receive guidance through a GUI,
+The LLM plays a dual role in the approach. First, it con- typically in the form of examples, they are free to formu-
+verts enriched user requests into executable queries. Sec- late their request using their preferred linguistic structure
+ond, it synthesizes the final results, incorporating statistical and syntax, without any predefined constraints. An example
+insights, semantic explanations, and user preferences into a of an analytical request is “I want to analyze the trends
+coherent response. Its natural language capabilities are key of PM2.5 air pollution by country and on a daily basis”,
+to maintaining a user-centric, explainable interface. where the subject of measurement can be expressed in vari-
+The workflow is managed by a module for coordination, ous alternative wordings, such as “particulate matter below
+which is not depicted in Fig. 3. It is in charge of providing 2.5 micron” or “fine particulate”. Similarly, the dimensions
+input to the next stage and collecting the relative output, may be phrased differently, e.g., “nation and day” or “daily
+thus serving as an orchestrator of the workflow. at country-level”.
+1 3
+
+--- PAGE 9 ---
+38 C. Diamantini et al.
+Fig. 3 Architecture of the Graph RAG approach
+The request can be supplemented by one or more prefer- allowed for the prompt of the LLM or to limit its number
+ences about the content of the data sources, such as “I am of tokens. In these situations, the request can be prelimi-
+particularly interested in results for Europe in the first half nary interpreted and categorized according to some criteria.
+of 2024”. Preferences are used at a later stage of the work- For instance, in multi-purpose data catalogs organized on
+flow to drive the ranking of the alternative results. a domain basis, the indicators and dimensions most rele-
+The approach is summarized in Algorithm 1. The enrich- vant to the identified topic of interest can be prioritized and
+ment of the user request involves the extraction of con- included as context, e.g., if the request deals with environ-
+textual knowledge from the Knowledge Graph about the mental pollution, indicators on gender balance or employ-
+terminology used in the organization for indicators (line ment rate are unlikely to be useful for the analysis, and can
+1), dimensions and corresponding levels (line 2). Extracted be left out of the contextual part of the prompt. Further
+information for indicators includes their full name along practical optimizations can be devised, such as employing
+with properties such as the textual description, the unit of a stateful or hybrid interaction mode with the LLM, reusing
+measure and the measurement objective. To make an exam- (a part of) the context.
+ple, the following information are added to the prompt about
+the indicator CO2: “CO2 (Carbon Dioxide, greenhouse 4.2 Query generation and validation
+gas), measured in ppm (parts per million)”. As for dimen-
+sions, their names and the set of their levels are extracted The following step consists in translating the user request,
+and used for the enrichment, e.g. “Dimension ‘GEO’ has complemented with the encoded contextual knowledge, into
+levels: continent, country, region and city.” Since the size a valid query for the dataset discovery platform. In the fol-
+of the dimensional hierarchies is not critical in most real- lowing, we introduce the notion of well-defined query.
+world scenarios, a static enrichment with all indicators in ,
+I
+dimensions in D and corresponding levels in the Knowledge Definition 5 (Well-defined query) A well-defined query is a
+Graph is suitable for most practical cases. A more dynamic tuple Q= , , where = ind ,...,ind
+⟨I
+Q
+L
+Q
+⟩ I
+Q
+{
+1 nQ}⊆I
+approach to enrichment can be employed when the size of is a set of indicators, = ,..., such that
+L
+Q
+{L
+1
+L
+mQ}
+the dimensional hierarchy exceeds the maximum length , , D , D :D =D , is a set of
+j z Q j h z g h g
+∀L L ∈L L ∈ L ∈ ̸
+1 3
+
+--- PAGE 10 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 39
+levels representing the dimensional pattern at which the approaches, both with pre-trained Language Models [e.g.,
+result is requested. 4] and general-purpose ones [e.g., 36].
+Instruction-tuning [51] is meant to drive the LLM in the
+The formal specification of the syntax for a query can be generation of the correct output, in this case a query aligning
+expressed in Extended Backus-Naur Form (EBNF): with the right syntax and semantics. Along with the syntax
+In our example case, the user is interested in analyzing for a well-formed query, the prompt also includes exam-
+PM and PM indicators aggregated by country and ples of queries, following the few-shot learning prompting
+2.5 10
+year levels. Let the input textual request be: “I want to approach [50]. This technique involves providing a small
+analyze particulate matter emissions by country and year, set of well-structured examples of well-formed queries.
+with a focus on Europe and the last 3 years”. The user’s These examples showcase the correct format, structure, and
+request is translated in the following well-formed query: use of indicators and dimensions ensuring that the query
+Pollution_PM2.5,Pollution_PM10 , GEO. aligns with the syntax and semantics of the dataset discov-
+⟨{ } {
+country,TIME.year , where GEO.country and TIME. ery platform. With respect to zero-shot prompting, which
+}⟩
+year respectively refer to the levels country of dimension does not include any examples and only relies on the knowl-
+GEO and the level year of dimension TIME. edge of the model, few-shot learning is capable of steering
+It is worth noting that, despite the apparent simplicity the model towards the right goal, obtaining more accurate
+of the query language, the kind of queries we can manage responses with fewer hallucinations or ambiguities. A vali-
+fall into the classical Selection-Projection-Join (SPJ) class. dator is then used to verify the query’s syntactic correctness
+Projection is clearly defined by the specification of the set and possibly drive its re-generation. Finally, in order to deal
+of indicators and levels, while joins are automatically dis- with incomplete or ambiguous user requests that can be mis-
+covered by one of the most prominent features of the data- interpreted, the LLM is required to abstain from generating
+set discovery system proposed, thus relieving the user from low-confidence outputs. To this aim, we employ a prompt-
+explicit definition of join conditions. Selection is managed ing-based approach in which the prompt includes specific
+as well. In practice, desired conditions on data values are instructions to reject the task if this is not clear enough. An
+specified as soft requirements in the form of user prefer- example of an ambiguous request is “I want to analyse pol-
+ences in the textual request (e.g. “with a focus on Europe lution”, which does not clarify neither which specific pol-
+and the last 3 years” in the previous example), and managed lution indicator to select among the available ones, nor the
+at a later stage, when ranking is performed. analysis dimensions. In such cases, the LLM will reply a
+We also like to note that, for the sake of simplicity, we do feedback to the user to disambiguate the request.
+not introduce aggregation operators here, in the view of the The query generation procedure is summarized in Algo-
+fact that aggregation is performed on the result of the source rithm 1. Once dimensional levels and indicators have been
+discovery step, although in principle the underlying system extracted, as seen in the previous subsection, a prompt is pro-
+would be able to manage it. duced (function write_query_prompt, line 6) and submitted
+The actual generation of the query is performed by the to the LLM for the query generation (line 7). The obtained
+LLM through a prompt which includes a set of instructions query is then validated in order to identify possible syntac-
+along with the user request and the contextual knowledge tic errors (line 8). In case the query is valid, it is returned
+about available indicators and dimensional hierarchies. This along with the successful status (lines 9-10). Conversely,
+approach is named Semantic Parsing, and refers to the pro- the patch_prompt function (line 12) is called to adjust the
+cess of translating natural language into a structured formal prompt taking into account the identified syntax error, and
+representation, such as a query in a specific database or the loop continues with the updated version. The process
+knowledge graph query language. The use of LLM for this goes on a number of times up to MAX_ATTEMPTS. In case
+task has been experimented in the Literature with various no valid query can be generated, the function returns a tuple
+1 3
+
+--- PAGE 11 ---
+40 C. Diamantini et al.
+including an empty query and the unsuccessful status. As of the sources discussed in Sect. 3. This is a peculiar fea-
+such, the procedure implements an iterative and feedback- ture of our approach, whereas many works in the Literature
+driven approach to translating natural language requests require the exploration of the search space during query
+into structured queries, leveraging a prompt patching mech- execution.
+anism to improve generation results when needed.
+Algorithm 1 Request enrichment and query generation
+4.3 Dataset Discovery Given the user’s request
+Pollution_PM2.5,Pollution_PM10 ,
+⟨{ }
+The following step involves the submission of the query to GEO.country, TIME.year , a possible solution can
+{ }⟩
+the dataset discovery platform to identify a set of solutions. be a set of two sources S ,S where S has an attribute
+1 2 1
+{ }
+To determine whether a data source can be used to com- mapping to Pollution_PM2.5 indicator and S has an
+2
+pute an answer to a query, a requirement is that it must have attribute mapping to Pollution_PM10 indicator. Both
+a compatible dimensional schema, i.e., the source must sources have the dimensional schema compatible with the
+include the same levels as the query. In many practical sce- query, i.e., they contain columns which map to dimensional
+narios, this constraint can be relaxed by considering a source levels GEO.country and TIME.year. The user obtains the
+compatible if it includes a super-set of the query’s levels. requested information when joining together S and S
+1 2
+In such cases, roll-up relations can be leveraged to provide using the attributes mapped to GEO.country and TIME.year
+data at the appropriate aggregation level, as outlined in [12]. as join attributes.
+It is worth noting that multiple solutions, i.e., alternative
+4.3.1 Solutions Discovery sets of sources satisfying the conditions, can be retrieved
+by the discovery platform. Such solutions will be provided
+A solution for a query is a set of data sources that (i) have a to the user to let them select the one most suitable to their
+dimensional schema compatible with the query and, when needs. In order to reduce the number of candidate solutions,
+joined together, (ii) provide the requested set of indicators. pre-filtering is done by removing those solutions in which
+In order to be actionable, the sources in a solution need to the cardinality of the join is very small. This can happen
+be joined using the levels in the dimensional schema as join when joining sources with non-overlapping content, e.g.,
+attributes. joining a source about pollution in Europe and a source
+about pollution in the Far East would result in an empty
+Definition 6 (Solution to a query) Given a query result set, although the dimensional schema is the same.
+Q= Q , Q , a solution S is a combination of data sources However, an exact calculation of the joins would be highly
+⟨I L ⟩
+S ,...,S , such that (i) =dim(S ), i=1,...,n inefficient in case of a very large dataset repository such as a
+1 n Q i
+{ } L ∀
+and (ii) ind(▷◁n S ). Data Lake or a Data Space. For such a reason, the platform
+I Q ⊆ i=1 i
+employs an algorithm to compute an approximate evalu-
+A solution is generated by the platform by exploiting the ation of the cardinality, through hashing schemes such as
+mappings between the Knowledge Graph and the metadata MinHash [7] and LSHEnsemble for approximate evaluation
+1 3
+
+--- PAGE 12 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 41
+of set containment [57]. The estimated cardinality is also actual distribution, as it is computed on each attribute of the
+used to provide a basic ranking of the alternative solutions. sources separately.
+Finally, the result set of the dataset discovery step is
+4.3.2 Estimation of the Profile for a Solution defined as follows.
+In order to support the users in the choice among multiple Definition 8 (Result set) Given a query Q, its result is a set
+solutions, summary information of the content of each solu- R Q = Z 1 ,...,Z r , where Z i = Si ,E i is a tuple includ-
+{ } ⟨ ⟩
+tion is provided in terms of data distribution of the result of ing a solution Si and its estimated profile E i .
+the join. Again, exact profiling would be infeasible in Big
+Data scenarios. For such a reason, we complement each As shown in Algorithm 2, the procedure starts with the exe-
+solution Si with its estimated profile E i , which represents cution of the query on the dataset discovery platform (line
+the estimated distribution of values for each level of the 2). Then, for each retrieved solution Si , the estimated profile
+dimensional schema. As such, the estimated profile provides is computed (lines 4-8): in particular, for each data source
+an explanation of Si in terms of the estimated distribution of S j in Si its profile π j is extracted from the SKG (line 6)
+the data resulting from joining the data sources in Si . and appended to the list of profiles P i for the solution (line
+7). Then, its estimated profile E is computed (line 8) and
+i
+Definition 7 (Estimated profile) Given a query added to the result set R (line 9).
+Q
+Q= , with = L ,...,L and a solu-
+Q Q Q 1 m
+⟨I L ⟩ L { }
+tion S= S
+1
+,...,S
+n
+, we denote the estimated profile 4.4 Preference-Oriented Solution Ranking and
+{ }
+of S by a set E = Ψ e (L 1 ),...,Ψ e (L m ) . We denote by Explanation
+{ }
+Ψ (L )= m,y m L ,y 0 the estimated profile
+e j e j e
+{⟨ ⟩| ∈ ≥ }
+of a level L , where the value y represents the estimated The last step of the workflow consists in ranking the solu-
+j e
+number of values aligned with member m δ(L ) in the tions produced by the dataset discovery platform according
+j
+∈
+result of the join ▷◁n S . to the user preferences and providing the user with a textual
+i=1 i
+report including the rank and a comparison of the solutions.
+Operationally, given a level L , the profile Ψ (L ) is cal- As summarized in Algorithm 2, this task is performed
+j e j
+culated as the intersection of profiles of attributes of all by the LLM. At first, a prompt is built including (1) a set
+sources in Si which map to the same level L j . On the other of instructions on the task to perform (reported in Sect. 5,
+hand, the value y can be estimated in several ways. In this (2) the user preference expressed in the original request,
+e
+work, we rely on a histogram-based approach assuming (3) the list of solutions S1 ,...,Sm } and their estimated
+{
+independence of the dimensional attributes, which is a sim- profiles E ,...,E } and (4) background knowledge on
+1 m
+{
+ple yet efficient approach and one of the most adopted solu- the dimensional levels of the query (line 10). The instruc-
+tions for industrial DBMSs [29]. Denoting by o ,...,o tions are aimed to make the task of ranking and comparison
+1 n
+the number of occurrences of a member m in S ,...,S , explicit. The report will focus on explaining the differences
+1 n
+the number of occurrences of m in the join of S ,...,S among the solutions, especially with respect to user prefer-
+1 n
+is min(o ,...,o ). Therefore, we take this value as an ences. In case a ranking is not computable due to ambiguous
+1 n
+≤
+upper bound for y . This is motivated by the fact that each user preferences, the original ranking of the dataset discov-
+e
+record in a source has a unique combination of values for ery is preserved (only based on estimated cardinality). The
+the dimensional schema (we rely on the classical definition report will only focus on describing the different solutions.
+of relation as a set). Finally, the prompt is submitted to the LLM (line 11) and
+To give an example, let us consider the profiles of two the response is returned to the user, in the form of a report
+attributes from two sources a S and a S , both including the rank and an explanation comparing the solu-
+x 1 y 2
+∈ ∈
+mapped to level GEO.country. The profile of the former is tions. To this aim, we refer to the following definition of
+<Italy, 20>, <France, 70>, <Germany, 10> , while the explainability, adapted from the general definition proposed
+{ }
+one for the latter is <Italy, 200>, <Spain, 400>, <Portugal, in Chazette et al. [11].
+{
+350>, <France, 50> . The cardinalities of the sources are
+}
+100 for S and 1000 for S . Since Italy occurs 20 times in Definition 9 (Explainable ranking for dataset discovery)
+1 2
+a and 200 times in a , the upper bound for the number of
+1 2
+occurrences in the join is min(20,100)=20. As a result, A ranked set R of solutions for a query Q is explain-
+rank
+Ψ (GEO.country)= <Italy, 20>, <France, 50> . Please able with respect to a user A and preference P, if and only if
+e
+{ }
+note that, in general, the intersection can overestimate the there exists an explanation E such that:
+1 3
+
+--- PAGE 13 ---
+42 C. Diamantini et al.
+E =Understanding(A,R ,P)
+| rank the output of the dataset discovery platform to incorpo-
+rate explainability. This approach is model-agnostic, as it
+where E is a structured natural language report satisfying does not rely on the internal mechanisms of the underlying
+the following conditions: retrieval model.
+Considering our example case and the query
+(i) Preference interpretation: the system identifies, extracts, Pollution_PM2.5,Pollution_PM10 , GEO.
+⟨{ } {
+and represents preferences P in a form usable for rank- country,TIME.year , let us assume the dataset discov-
+}⟩
+ing decisions; ery platform responds providing a result set R formed by
+Q
+(ii) Justification of Ranking: E justifies the ordering of items four distinct solutions. Each solution (Si = S
+i1
+,...,S
+in
+)
+{ }
+in R by showing how dataset profiles and domain includes a set of data sources that, once joined, are capable
+rank
+knowledge align to P; of responding to the user request. In Fig. 4, the estimated
+(iii) Intent Alignment Evaluation: A can assess whether the profiles (E ) for each solution are illustrated as a pair of his-
+i
+system’s interpretation of P aligns with the intended pri- tograms for the two required dimensions, showing the esti-
+oritization criteria. mated distribution of, respectively, the GEO.country and the
+TIME.year dimensions. The occurrences (y-axis) are nor-
+According to the definition, the system (i) must be able to malized with respect to the total number of rows provided by
+accurately identify and interpret the implicit and explicit the joins. In the absence of further support, the user should
+preferences expressed. For instance, the user might say “I manually analyze the resulting profiles and figure out which
+want recent datasets relevant to particulate matter in Amer- solution is best aligned with their needs. This process can be
+ica” and the system must understand not just keywords, but time-consuming and may become unfeasible in real-world
+also concepts like recency, geography, or domain-specific scenarios where both the number of solutions and the num-
+relevance. Then, (ii) the explanation should explicitly link ber of distinct members in sources’ profiles can be huge. In
+features of the solutions (in the form of profiles) to user order to address this issue, the system returns a ranking of
+preferences, so it is not enough to justify that a solution is the obtained solutions based on the user’s preferences, along
+better than the other, as users need to know why, e.g., “Solu- with natural language explanations of the reasons behind
+tion A includes American countries and the last five years”, the ranking. In this example case, the user expresses prefer-
+which matches the preferences on the geographic and tem- ences for “European countries” and “the last 3 years”. Thus,
+poral dimension. Furthermore, (iii) the user must have the the system should identify S2 as the best solution since it
+possibility to evaluate whether the system understood them contains data regarding years 2023-2025 and European
+correctly. countries. The solution S1 does not contain occurrences on
+According to the categorization proposed in Bernard and 2023 2025 but could still be interesting since it has only
+−
+Balog [5], our approach to explainability operates at the European data. Solutions S3 and S4 represent those of least
+local explanation level describing the relationship between interest as they have neither data on 2023-2025 nor a major-
+a specific input (i.e., query result) and output (i.e., the rank- ity of European countries. All this information is returned
+ing). The explanations are presented in a textual format by the system in natural language, making the explanations
+and are implemented as a post-processing step, modifying easy to understand by even less-experienced users.
+Algorithm 2 Discovery and ranking
+1 3
+
+--- PAGE 14 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 43
+Fig. 4 Example case: estimated profiles for the four solutions of the dataset discovery platform
+5 Evaluation discovery. An evaluation of the dataset discovery platform
+(Fig. 3, step 4) is available in a previous work [13].
+This section is devoted to describing experiments aimed at
+evaluating the performance of a prototypical implementa-
+tion of the proposed Graph RAG-based approach for dataset
+1 3
+
+--- PAGE 15 ---
+44 C. Diamantini et al.
+5.1 Experimental Setup a comparative analysis both between different proprietary
+models and between proprietary and open source models.
+In order to evaluate the proposed dataset discovery platform, The details of the experiments and the results are presented
+we developed a prototype following a Service-Oriented in the following subsections. For a complete list of tested
+Architecture, where each functionality (both for graph man- prompts and corresponding outputs, please refer to the proj-
+agement and dataset search) is provided as a service. The ect repository at h t t p s : / / g i t h u b . c o m / K D M G / g r a p h _ R A G _ d
+prototype was implemented in Python 3.7, using Flask as a a t a s e t _ d i s c o v e r y.
+micro-framework to deploy RESTful services. Experiments
+were carried out on datasets monitoring air pollutants, such 5.2 Query Generation
+as CO and PM , aggregated by geographical, tempo-
+2 2.5
+ral, and sectoral dimensions. The BKG represents pollutant The system’s ability to generate queries was evaluated using
+indicators and the following dimensions: GEO, TIME, and 22 user requests, 6 of which contained vague/imprecise
+SECTOR. The dimension levels are: instructions and/or typos, and 2 were malformed, including
+ambiguity or mistakes, to evaluate the system’s response in
+● GEO dimension: region, country, and continent; more complex scenarios. The prompt structure was opti-
+● TIME dimension: month and year; mized through a prompt engineering phase in order to get
+● SECTOR dimension: macro-sector and subsector. better answers from the LLM. Prompts contained the fol-
+lowing information:
+To structure the schema, extract air pollutants and obtain
+value distributions in the different dimensional levels, we ● a brief specification of the task to be performed;
+referred to real-world datasets from the Climatetrace6, ● a description of the indicators and the dimensions con-
+Ourworldindata7 and European Data8 repositories. We tained in the datasets;
+considered a total of 24 air pollutants gathered from all ● the expected syntax of the query;
+the repositories (CO2, CO2e-100, CO2e-20, CH4, N2O, ● some examples of well-defined queries;
+PM2.5, PM10, NMVOCs, CO, NH3, NOx, SO2, BC, OC, ● instructions on how to deal with vague or imprecise
+AS, CD, CR, CU, HG, NI, PB, SE, SOx, ZN) and 10 macro- requests;
+sectors (Agriculture, Buildings, Fluorinated Gases, Fossil ● the user request (e.g., "I want to analyse pollution
+Fuel Operations, Forestry and Land Use, Manufacturing, (PM2.5 and CO2) by country and year").
+Mineral Extraction, Power, Transportation, Waste) each
+divided into its subsectors from the Climatetrace repository. The option to answer “Not sure” or to ask the user for
+We performed three different typologies of experiments clarification was given if the system was not able to gen-
+on the datasets: erate a query with certainty based on the information
+provided. As reported in Table 1, the system was capable
+● query generation: we tested the system’s ability to gen- of correctly manage all cases. In particular, it provided a
+erate well-formed queries based on user requests or, if well-formed query in 16 out of 22 cases. These queries
+this is not possible, to fall back to requesting clarifica- were syntactically correct as they respected the format
+tion from the user; set_of_indicators , set_of_dimension_levels
+⟨{ } { }⟩
+● solutions ranking: we evaluated solutions rankings pro- described in Sect. 4.2, while the specified indicators and
+posed by the system based on user preferences. dimensions were coherent with the provided lists of existing
+● explainability: we evaluate the LLMs’ ability to provide indicators and dimensions. In 4 cases, which correspond to
+sound explanations to the provided solutions rankings. ambiguous requests the answer “Not sure” was generated
+with the request of clarification. Finally, in 2 cases, corre-
+For what concerns the considered LLMs, we used the GPT- sponding to ambiguous and malformed requests, the sys-
+4o model available through the OpenAI APIs9 for the exper- tem produces a query that was correctly assessed as invalid
+iment on query generation and we compared three different by the Query Validation, and therefore returned to the user
+LLMs, namely GPT-4o, DeepSeek-R1 and Llama-70b in for clarification. In general, the system was able to generate
+the other experiments. The LLMs were chosen to allow for correct queries in all cases where the user request contained
+sufficient information on indicators and aggregation levels,
+6 https://climatetrace.org/data. i.e., from case 1 to case 14. It can be noticed that in case
+7 https://ourworldindata.org/. 12 (“I want to analyse air pollution aggregated by region,
+8 https://data.europa.eu/. month and sector"), the system correctly identifies the indi-
+9 h t t p s : / / o p e n a i . c o m / i n d e x / o p e n a i - a p i /. API calls have been submitted cators related to air emissions and, in absence of further
+on May 2025.
+1 3
+
+--- PAGE 16 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 45
+Table 1 User requests and results for the query generation experiment
+Case Prompt Response
+1 I want to analyse pollution (PM2.5 and <{pollution_PM2_5, pollution_CO2}, {GEO.country, TIME.year}>
+CO2) by country and year
+2 I want data sources which measure CH4 <{pollution_CH4}, {GEO.country, TIME.year, SECTOR.macrosector}>
+emissions by country, year and macro
+sectors
+3 Gather data about PM2.5 aggregated by <{pollution_PM2_5}, {GEO.region, TIME.year, SECTOR.subsector}>
+region and subsector for all the years
+4 I would like to join data sources con- <{pollution_NH3, pollution_CO2}, {GEO.country, TIME.year, SECTOR.subsector}>
+taining NH3 and CO2 pollutants where
+indicators are aggregated by country, year
+and subsectors
+5 I wish to analyse CH4, CO and PM10 air <{pollution_CH4, pollution_CO, pollution_PM10}, {GEO.country, TIME.month, SEC-
+pollution indicators measured by country TOR.subsector}>
+and months, also with information about
+subsectors
+6 Collect data sources containing PM10 <{pollution_PM10}, {GEO.country, TIME.year}>
+values for all the countries and years
+7 Find all the datasets with regions, months <{pollution_NOx}, {GEO.region, TIME.month, SECTOR.subsector}>
+and subsectors, and NOx values
+8 I want to analyse country data and the <{pollution_CO2}, {GEO.country}>
+emissions of CO2
+9 Gimme data aggregated by region and <{pollution_CO2, pollution_CO2e100, pollution_CO2e20, pollution_CH4, pollution_
+subsector for all the years N2O, pollution_PM2_5, pollution_PM10, pollution_NH3, pollution_SOx, pollution_SO2,
+pollution_CO, pollution_NOx, pollution_NMVOCs, pollution_BC, pollution_OC, pollu-
+tion_AS, pollution_CD, pollution_CR, pollution_CU, pollution_HG, pollution_NI, pollu-
+tion_PB, pollution_SE, pollution_ZN}, {GEO.region, TIME.year, SECTOR.subsector}>
+10 Collect greenhouse gas emissions for <{pollution_CO2, pollution_CO2e100, pollution_CO2e20, pollution_CH4, pollution_
+country, year and subsector N2O}, {GEO.country, TIME.year, SECTOR.subsector}>
+11 Find datasets containing CO2 measured <{pollution_CO2}, {GEO.country, TIME.year}>
+by geography and temporal dimensions
+12 I want to aanlyse air pollution aggregated <{pollution_CO2, pollution_CO2e100, pollution_CO2e20, pollution_CH4, pollution_
+by region, month and sector N2O, pollution_PM2_5, pollution_PM10, pollution_NH3, pollution_SOx, pollution_SO2,
+pollution_CO, pollution_NOx, pollution_NMVOCs, pollution_BC, pollution_OC,
+pollution_AS, pollution_CD, pollution_CR, pollution_CU, pollution_HG, pollution_NI,
+pollution_PB, pollution_SE, pollution_ZN}, {GEO.region, TIME.month, SECTOR.
+macrosector}>
+13 Find data about PM10 and PM2.5 for <{pollution_PM10, pollution_PM2_5}, {SECTOR.macrosector}>
+sectors
+14 Find particulate matter emissions in datas- <{pollution_PM2_5, pollution_PM10}, {GEO.continent, TIME.year}>
+ets with continents and years
+15 I would like to obtain data about CO2, <{pollution_CO2, pollution_NOx}, {GEO.region, TIME.month, SECTOR.subsector}>
+NOx and NO2 for each region, month and
+subsector
+16 I want to analyse pollution Not sure
+17 Give me data about air emissions aggre- <{pollution_CO2, pollution_CH4, pollution_N2O, pollution_PM2_5, pollution_PM10,
+gated by industry pollution_NH3, pollution_SOx, pollution_SO2, pollution_CO, pollution_NOx, pollu-
+tion_NMVOCs, pollution_BC, pollution_OC}, {SECTOR.macrosector}>
+18 Gather data suorces contianing SO2, C4H Not sure
+and AS for cities and centuries
+19 Give me results for SO2, Nox and N2O Not sure
+20 I want pollutant indicators for cities Not sure
+21 Sector by year and country < { },{GEO.country, TIME.year, SECTOR.macrosector} >
+22 Year by year and sector < { },{TIME.year, SECTOR.macrosector} >
+Responses in bold are correctly identified as ambiguous/invalid and returned for clarification
+1 3
+
+--- PAGE 17 ---
+46 C. Diamantini et al.
+specifications, aggregates at the highest level of the sector A preliminary evaluation was manually performed by three
+dimension (SECTOR.macrosector). Similar considerations human evaluators, who were not among the authors and had
+can be made for case 17 (“Give me data about air emissions no familiarity with the work. They were asked to rank the
+aggregated by industry"), where the LLM also associates solutions based on the information provided in the prompt.
+the term “industry” to the sector dimension. User requests Their rankings were considered as the ground truth and used
+containing slang words (e.g., “Gimme [...]" in case 9) and/ for the evaluation of the results of the LLMs. In cases where
+or typos (e.g., “I want to aanlyse [...]" in case 12) are also there was no complete agreement among the annotators, the
+correctly interpreted, making the system robust to stylistic best ranking was chosen using a majority voting criterion.
+differences and typing errors in prompt writing. In case 15 The agreement among rankings proposed by the human
+(“I would like to obtain data about CO2, NOx and NO2 for evaluators was evaluated through the Krippendorff’s alpha
+each region, month and subsector"), where the prompt asks coefficient [27], which is defined as:
+for the NO2 indicator, which does not exist in the datasets,
+D
+the system ignores the request for such an indicator and pro- α=1 o
+vides a query that only extracts the other two existing indi- − D e
+cators (e.g., CO2, NOx). In case of very vague queries (e.g.,
+“I want to analyse pollution" in query 16) the system cor- where:
+rectly responds “Not sure” to point out the lack of sufficient
+information for a correct generation of the query. For cases ● D o : Observed disagreement, calculated as the sum of
+21 and 22, the request itself was malformed, despite using differences between observed pairs of evaluations.
+valid terminology. Although the Query Generation module ● D e : Expected disagreement, calculated as the disagree-
+produced a query, it was correctly flagged as invalid, and ment expected by chance.
+returned back. As a result, the system asked the user for
+clarification at the second iteration. The observed disagreement D is calculated as:
+o
+5.3 Solutions Ranking D = δ2(v ,v ) o o
+o c,k c,l c,k c,l
+· ·
+c Ck<l
+∑∈ ∑
+In the second experiment, the goal was to evaluate the
+preference-oriented solution rankings generated by the The expected disagreement D is calculated as:
+e
+dataset discovery platform and the corresponding report. To
+this purpose, we considered 40 user requests with specific D = δ2(v ,v ) p p
+e k l k l
+· ·
+preferences (e.g., “I prefer data on winter months about k<l
+∑
+Power subsectors"). These last range from clear and pre-
+cise to more ambiguous formulations. For each request, we The definitions for the symbols are the following:
+obtained three solutions from the dataset discovery platform
+and asked the three LLMs to rank them, based on the user ● C: Set of all items or cases.
+preferences. The prompts were structured as follows: ● δ(v c,k ,v c,l ): Distance metric between two values v c,k
+and v , often squared difference for numerical data.
+c,l
+● a role assignment to the LLM; ● o c,k : Observed proportion of evaluators assigning value
+● a description of the members of each dimension in the k to item c.
+datasets, i.e., background knowledge from the Knowl- ● o c,l : Observed proportion of evaluators assigning value
+edge Graph; l to item c.
+● the preferences of the user query, expressed in natural ● p k : Proportion of all evaluations assigned to value k.
+language; ● p l : Proportion of all evaluations assigned to value l.
+● information about the task to be performed, i.e., to rank
+the proposed solutions according to user preferences Krippendorff’s alpha coefficient among evaluators was
+and explain the criteria used to accomplish this task; α=0.936, which means that evaluators proposed consis-
+● for each solution, its estimated profile E (see Definition tent rankings in most cases.
+7). To normalize the results, we reported the estimated The rankings proposed by the human evaluators, the
+number of values for each member of the estimated pro- majority ranking as well as those generated by the three con-
+file as a percentage rather than an absolute value. sidered LLMs, are shown in Table 2. The rankings reported
+in the columns Human1, Human2 and Human3 refer to the
+solutions, proposed by the respective annotators, which
+1 3
+
+--- PAGE 18 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 47
+Table 2 Majority ranking of the human evaluators and comparison among the rankings proposed by the three LLMs
+Prompt Human1 Human2 Human3 Majority Ranking GPT-4o DeepSeek-R1 Llama-70b
+1 CAB CAB ACB ACB
+2 CAB CAB ACB CAB
+3 ABC ABC ABC BAC
+4 BCA BCA BCA BAC
+5 CBA CBA CBA BAC
+6 CBA CBA CBA CAB
+7 ABC ABC ACB CAB
+8 CBA CBA CBA CBA
+9 BCA CBA CBA CBA CBA
+10 BAC BAC CBA CBA
+11 BCA ACB BAC - BCA ABC CAB
+12 CAB CAB CAB CAB
+13 CBA CBA CBA CBA
+14 BAC BCA ABC BCA ACB
+15 ABC ABC ABC ACB
+16 ABC ABC ABC ABC
+17 ACB CAB CAB ACB ACB
+18 ACB ABC ABC BCA BAC
+19 CAB CAB CBA BCA
+20 ABC ABC ABC ABC
+21 BCA BAC BAC BAC
+22 CBA BCA CBA CBA
+23 CAB CAB CAB BCA
+24 BAC BAC BAC BAC
+25 ACB CAB ACB ACB CAB
+26 ABC ABC ABC CAB
+27 CAB CAB CAB CAB
+28 BAC BAC BAC BAC
+29 ACB ACB CAB CBA
+30 CAB CBA CBA CBA CBA
+31 CBA CBA CBA CBA
+32 CBA CAB CAB CAB CAB
+33 CBA CBA CBA CAB
+34 CBA CBA CBA CAB
+35 ACB CAB CAB CAB CAB
+36 CAB BAC BAC BAC B (incomplete)
+37 CAB ACB ACB ACB CAB
+38 CAB ACB BAC CAB CAB
+39 ACB CAB CAB CAB CAB
+40 BCA CAB BCA BAC BAC
+Errors 6 12 22
+Score 203 179 133
+Wrong rankings are in bold
+differ from the majority ranking. It can be noted that in one annotators, independently from the number of solutions
+case (i.e., prompt #11) no agreement was reached among put in the wrong position;
+human annotators due to the complexity of the request, ● an overall score, calculated by assigning 3 points for
+which lent itself to various interpretations, and hence we each first position correctly identified, 2 for each second
+did not consider that prompt in the evaluation of results. The position and 1 for each third position.
+generated rankings were evaluated by means of two metrics:
+In Table 2, it may be observed that GPT-4o outperforms the
+● the number of errors, i.e. the number of rankings dif- other models, as it makes considerably fewer errors than
+ferent from the majority rankings proposed by human other models. The rankings proposed by DeepSeek-R1 are
+1 3
+
+--- PAGE 19 ---
+48 C. Diamantini et al.
+Table 3 Comparison between the rankings proposed by GPT-4o with For what concerns the best model, i.e. GPT-4o, it can be
+and without information from the Knowledge Graph
+observed that the system proposed the best ranking in 33
+Prompt Majority ranking GPT-4o GPT-4o w/o KG
+out of 39 (84.6%) considered cases, while in an additional
+1 CAB CAB ACB
+case (2.5%) the evaluators could not reach a consensus on
+2 CAB CAB CAB
+a definitive best ranking. This demonstrated the ability of
+3 ABC ABC ABC
+GPT-4o to interpret user preferences and generate correct
+4 BCA BCA BCA
+5 CBA CBA BAC rankings. In detail, for 24 out of 33 correct rankings (73%),
+6 CBA CBA CBA all the evaluators agreed with its ranking, while in 9 rank-
+7 ABC ABC ACB ings out of 33 (27%) one evaluator proposed a different
+8 CBA CBA CBA solution.
+9 CBA CBA CBA After determining the best model, a second experiment
+10 BAC BAC CAB was designed to evaluate the impact of the information
+11 - BCA BAC coming from the Knowledge Graph on the final ranking.
+12 CAB CAB CAB
+To this purpose, we removed such an information from
+13 CBA CBA CBA
+the prompts and we sent them again to the best performing
+14 BCA ABC BCA
+model, namely GPT-4o. The results are shown in Table 3. It
+15 ABC ABC A (incomplete)
+is evident that the information coming from the Knowledge
+16 ABC ABC BAC
+Graph significantly improves the results: in fact, the number
+17 CAB CAB ACB
+18 ABC ABC BAC of incorrect rankings increases from 6 to 15, while the score
+19 CAB CAB CAB is reduced from 203 to 166 (−18.2%). It is also interesting
+20 ABC ABC ABC to notice that, in one case (i.e., prompt #15), the ranking
+21 BCA BAC BAC proposed by GPT-4o without KG is incomplete, as only the
+22 CBA BCA CBA first position is generated.
+23 CAB CAB CAB
+24 BAC BAC BAC 5.4 Evaluation of Explainability
+25 CAB ACB ACB
+26 ABC ABC ABC
+In order to evaluate the explainability capacity of the three
+27 CAB CAB CAB
+considered LLMs, the generated responses were evaluated
+28 BAC BAC BAC
+on a scale from 1 to 5 by three human operators with respect
+29 ACB ACB BAC
+to two different aspects:
+30 CBA CBA CBA
+31 CBA CBA CBA
+32 CAB CAB CAB ● the coherence of the response, i.e., how accordant the
+33 CBA CBA CBA explanation is with prior knowledge and beliefs [35];
+34 CBA CBA CAB ● the overall quality of the response, taking into account
+35 CAB CAB CAB all aspects (correctness, completeness and comprehensi-
+36 BAC BAC BAC bility of the explanation)
+37 ACB ACB CAB
+38 ACB BAC BAC
+The results of the evaluation are shown in Table 4. GPT-4o
+39 CAB CAB CAB
+gets the best scores in terms of both quality and coherence,
+40 CAB BCA BAC
+as its explanations resulted to be the most exhaustive and
+Errors 6 15
+correct. Slightly lower scores are given to DeepSeek-R1’s
+Score 203 166
+responses while the explanations given by Llama-70b have
+Wrong rankings are in bold
+the worst coherence and overall quality on average. A com-
+mon problem in the responses generated by Llama-70b was
+often only partially wrong, since the final score (179) is that they were not able to clearly explain the criteria used for
+quite high if compared to the number of errors (12). For the ranking and, sometimes, the explanations provided were
+instance, in all prompts except case #10, the ranking gener- not consistent with the data provided as input.
+ated by DeepSeek-R1 differs from the optimal one for a sin- Furthermore, we evaluated the compactness of the expla-
+gle swap of solutions. Moreover, the rankings generated by nations given by the three LLMs, i.e. the size (expressed in
+proprietary models show significantly superior performance terms of number of characters) of the answers, as described
+than the considered open source model, namely Llama-70b, in Nauta et al. [35]. The results are shown in Table 5, where
+partly due to differences in parameter size. also the standard deviations are reported. Coupled with the
+1 3
+
+--- PAGE 20 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 49
+Table 4 Evaluation of quality and coherence of the answers given by the LLMs
+Prompt Quality Coherence
+GPT-4o DeepSeek-R1 Llama-70b GPT-4o DeepSeek-R1 Llama-70b
+1 4,67 3,00 3,00 5,00 2,33 3,33
+2 5,00 3,00 4,50 5,00 4,00 5,00
+3 5,00 4,67 3,00 5,00 5,00 4,33
+4 5,00 5,00 3,33 4,67 5,00 4,00
+5 5,00 5,00 1,67 4,67 4,67 2,67
+6 4,67 5,00 2,67 5,00 5,00 3,00
+7 5,00 3,33 2,00 5,00 4,33 2,67
+8 5,00 4,67 5,00 5,00 4,67 5,00
+9 5,00 4,67 5,00 5,00 4,67 4,00
+10 4,33 2,67 2,33 5,00 3,33 3,00
+11 4,33 3,67 4,00 5,00 4,33 4,33
+12 5,00 5,00 5,00 5,00 4,67 4,67
+13 4,33 4,67 4,67 5,00 4,33 5,00
+14 3,00 5,00 2,33 4,33 5,00 4,00
+15 4,67 4,67 3,00 4,33 5,00 3,00
+16 5,00 4,67 4,33 4,67 4,67 4,67
+17 4,00 4,00 3,00 4,67 4,33 4,00
+18 4,33 3,67 3,00 4,67 5,00 3,33
+19 5,00 3,67 2,00 5,00 4,33 2,33
+20 4,67 5,00 4,00 5,00 5,00 3,67
+21 4,67 4,33 4,00 4,67 4,33 4,00
+22 4,00 5,00 4,00 4,00 5,00 4,00
+23 5,00 5,00 3,33 5,00 5,00 3,00
+24 5,00 5,00 5,00 5,00 5,00 5,00
+25 4,33 4,33 5,00 4,33 4,33 5,00
+26 4,67 4,67 2,33 4,67 4,67 2,67
+27 5,00 4,67 3,67 5,00 4,67 4,00
+28 4,67 4,67 4,33 5,00 5,00 4,33
+29 5,00 4,67 4,67 5,00 4,33 4,00
+30 4,67 4,67 4,67 4,33 4,00 4,33
+31 5,00 4,67 4,67 5,00 4,67 5,00
+32 4,67 4,67 4,33 5,00 4,67 3,67
+33 5,00 4,67 3,33 5,00 5,00 3,00
+34 4,67 4,67 2,67 4,67 4,67 2,67
+35 5,00 5,00 5,00 5,00 5,00 5,00
+36 4,67 4,67 3,33 4,67 4,67 3,67
+37 5,00 4,67 3,33 5,00 5,00 3,33
+38 3,67 4,00 4,00 4,00 4,00 4,00
+39 5,00 5,00 5,00 5,00 5,00 5,00
+40 4,00 3,67 3,67 3,67 3,67 3,67
+Average 4,67 4,44 3,70 4,78 4,56 3,88
+Table 5 Compactness of the explanations given by the three LLMs
+words. DeepSeek-R1 produced the longest outputs on
+GPT-4o DeepSeek-R1 Llama-70b
+average (avg_length=2962.40), followed by GPT-4o (avg_
+Average length 2147,05 2962,4 1445,15
+length=2147.05), with Llama-70b generating the shortest
+Std. Dev 536,93 782,42 416,43
+responses (avg_length=1445.15). This suggests that Deep-
+Seek-R1 is significantly more verbose in its responses, which
+coherence, the compactness allows to better evaluate the could reflect its internal design choices that may encourage
+explainability performance: in fact, answers that are both a broader elaboration of explanations. The standard devia-
+short (i.e., high compactness) and coherent are an indica- tion (SD) values provide insights into response variability.
+tor of a model’s high explainability capacity, as it is more DeepSeek-R1 not only generated the longest outputs but
+difficult to give convincing explanations by using few also had the highest variability (SD=782.42), indicating less
+1 3
+
+--- PAGE 21 ---
+50 C. Diamantini et al.
+Funding Cristina Rossetti has received funding from the MUR – DM
+consistency in output length. Conversely, GPT-4o displayed
+118/2023 as part of the project PNRR-NGEU. Alex Mircoli has re-
+moderate variability (SD=536.93), while Llama-70b was ceived funding from the project Vitality – Project Code ECS00000041,
+the most consistent (SD=416.43), aligning with its gener- CUP I33C22001330007 - funded under the National Recovery and
+ally shorter and more uniform output. However, in this case Resilience Plan (NRRP), Mission 4 Component 2 Investment 1.5 -
+‘Creation and strengthening of innovation ecosystems,’ construction
+a high compactness is not correlated with high coherence,
+of ‘territorial leaders in R&D’ – Innovation Ecosystems - Project ‘In-
+as Llama-70b showed the lowest values for that metric. As novation, digitalization and sustainability for the diffused economy in
+a consequence, GPT-4o is confirmed as the best option for Central Italy – VITALITY’ Call for tender No. 3277 of 30/12/2021,
+correctly generating a ranking and its explanation. and Concession Decree No. 0001057.23-06-2022 of Italian Ministry
+of University funded by the European Union – NextGenerationEU.
+Availability of data and materials Prompts and results of the evalua-
+6 Conclusion
+tion are available at h t t p s : / / g i t h u b . c o m / K D M G / g r a p h _ R A G _ d a t a s e t _
+d i s c o v e r y.
+In this work, we introduced a novel Graph Retrieval-Aug-
+mented Generation (Graph RAG) framework to enhance Declarations
+the explainability and effectiveness of dataset discovery. By
+Competing interests All authors declare that they have no competing
+integrating Knowledge Graphs and Large Language Models
+interests.
+(LLMs), the approach addresses challenges associated with
+interpreting heterogeneous data sources and providing user- Open Access This article is licensed under a Creative Commons
+centric explanations for dataset recommendations. The pro- Attribution 4.0 International License, which permits use, sharing,
+posed methodology combines enriched query formulation, adaptation, distribution and reproduction in any medium or format,
+as long as you give appropriate credit to the original author(s) and the
+leveraging contextual information from Knowledge Graphs,
+source, provide a link to the Creative Commons licence, and indicate
+with advanced LLM capabilities for query generation, solu-
+if changes were made. The images or other third party material in this
+tion ranking, and explainable result presentation. article are included in the article’s Creative Commons licence, unless
+Our experimental evaluation, which compared GPT-4o, indicated otherwise in a credit line to the material. If material is not
+included in the article’s Creative Commons licence and your intended
+DeepSeek-R1 and Llama-70b, demonstrated the system’s
+use is not permitted by statutory regulation or exceeds the permitted
+ability to generate well-formed queries, rank solutions
+use, you will need to obtain permission directly from the copyright
+effectively based on user preferences and produce explain- holder. To view a copy of this licence, visit h t t p : / / c r e a t i v e c o m m o n s . o
+able results, especially for GPT-4o. The results highlighted r g / l i c e n s e s / b y / 4 . 0 /.
+its robustness in handling vague or incomplete requests, as
+well as its capacity to enhance user understanding through
+References
+clear explanations of ranking decisions. The integration of
+approximate data profiling further ensures scalability, mak-
+1. Abedjan Z, Grütze T, Jentzsch A et al (2014) Profiling and mining
+ing the framework suitable for large and complex data eco-
+rdf data with prolod++. In: 2014 IEEE 30th International Confer-
+systems like Data Lakes and Data Spaces.
+ence on Data Engineering, IEEE, pp 1198–1201
+This research advances the state-of-the-art in data- 2. Auer S, Demter J, Martin M et al (2012) Lodstats–an extensible
+set discovery by addressing the often-overlooked aspect framework for high-performance dataset analytics. In: Knowl-
+edge Engineering and Knowledge Management: 18th Interna-
+of explainability, which is critical for fostering trust and
+tional Conference, EKAW 2012, Galway City, Ireland, October
+informed decision-making among users. Future work will
+8-12, 2012. Proceedings 18, Springer, pp 353–362
+focus on extending the framework to incorporate dynamic 3. Bahr L, Wehner C, Wewerka J et al (2024) Knowledge graph
+user feedback, enhancing the semantic parsing capabilities enhanced retrieval-augmented generation for failure mode and
+effects analysis. arXiv preprint arXiv:2406.18114
+for query generation with more advanced prompting tech-
+4. Banerjee D, Nair PA, Kaur JN et al (2022) Modern baselines for
+niques and exploring the applicability of the approach in
+sparql semantic parsing. In: Proceedings of the 45th International
+further real-world domains. ACM SIGIR Conference on Research and Development in Infor-
+mation Retrieval, pp 2260–2265
+Acknowledgements Authors would like to thank the evaluators for 5. Bernard N, Balog K (2025) A systematic review of fairness,
+their assessment of the results. accountability, transparency, and ethics in information retrieval.
+ACM Comput Surv 57(6):1–29
+6. Bogatu A, Fernandes AA, Paton NW et al (2020) Dataset discov-
+Author Contributions Emanuele Storti and Alex Mircoli contributed
+ery in data lakes. In: 2020 IEEE 36th international conference on
+to the study conception and design. Data collection and experimenta-
+data engineering (icde), IEEE, pp 709–720
+tion were performed by all authors. The first draft of the manuscript
+7. Broder AZ (1997) On the resemblance and containment of
+was written by Emanuele Storti, Alex Mircoli, Cristina Rossetti and
+documents. In: Proceedings. Compression and Complexity of
+Alessandro Mele. All authors reviewed and edited previous versions of
+SEQUENCES 1997 (Cat. No. 97TB100171), IEEE, pp 21–29
+the manuscript, read and approved the final manuscript.
+8. Castelo S, Rampin R, Santos A et al (2021) Auctus: a dataset
+search engine for data discovery and augmentation. Proc VLDB
+1 3
+
+--- PAGE 22 ---
+A Graph RAG Approach to Enhance Explainability in Dataset Discovery 51
+Endow 14(12):2791–2794. h t t p s : / / d o i . o r g / 1 0 . 1 4 7 7 8 / 3 4 7 6 3 1 1 . 3 4 30. Lewis P, Perez E, Piktus A et al (2020) Retrieval-augmented gen-
+7 6 3 4 6 eration for knowledge-intensive nlp tasks. Adv Neural Inf Pro-
+9. Castro Fernandez R, Abedjan Z, Koko F et al (2018) Aurum: A cess Syst 33:9459–9474
+data discovery system. In: 2018 IEEE 34th International Confer- 31. Marchionini G (2006) Exploratory search: from finding to under-
+ence on Data Engineering (ICDE), pp 1001–1012, h t t p s : / / d o i . o r g standing. Commun ACM 49(4):41–46
+/ 1 0 . 1 1 0 9 / I C D E . 2 0 1 8 . 0 0 0 9 4 32. Mavromatis C, Karypis G (2024) Gnn-rag: Graph neural
+10. Chapman A, Simperl E, Koesten L et al (2020) Dataset search: a retrieval for large language model reasoning. arXiv preprint
+survey. VLDB J 29(1):251–272 arXiv:2405.20139
+11. Chazette L, Brunotte W, Speith T (2021) Exploring explainabil- 33. Nagel L, Hierro JJ, Perea E et al (2021) Design principles for data
+ity: a definition, a model, and a knowledge catalogue. In: 2021 spaces: Position paper. Tech. rep., E. ON Energy Research Center
+IEEE 29th international requirements engineering conference 34. Nargesian F, Zhu E, Pu KQ et al (2018) Table union search on
+(RE), IEEE, pp 197–208 open data. Proc VLDB Endow 11(7):813–825
+12. Diamantini C, Potena D, Storti E (2018) Multidimensional query 35. Nauta M, Trienes J, Pathak S et al (2023) From anecdotal evi-
+reformulation with measure decomposition. Inf Syst 78:23–39 dence to quantitative evaluation methods: a systematic review on
+13. Diamantini C, Potena D, Storti E (2024) Analytic processing in evaluating explainable ai. ACM Comput Surv. h t t p s : / / d o i . o r g / 1 0 .
+data lakes: a semantic query-driven discovery approach. Inf Syst 1 1 4 5 / 3 5 8 3 5 5 8
+Front 14:1–9 36. Nguyen LM, Le NK, Anh KQ et al (2024) Semantic parsing for
+14. Diamantini C, Lo Giudice P, Potena D et al (2021) An approach question and answering over scholarly knowledge graph with
+to extracting topic-guided views from the sources of a data lake. large language models. In: JSAI International Symposia on AI, h
+Inf Syst Front 23:243–262 t t p s : / / a p i . s e m a n t i c s c h o l a r . o r g / C o r p u s I D : 2 7 0 2 2 7 6 7 3
+15. Edge D, Trinh H, Cheng N et al (2024) From local to global: A 37. Oram A (2015) Managing the Data Lake: Moving to Big Data
+graph rag approach to query-focused summarization. arXiv pre- Analysis. O’Reilly Media
+print arXiv:2404.16130 38. Ouyang L, Wu J, Jiang X et al (2022) Training language models
+16. Fernandez RC, Min J, Nava D et al (2019) Lazo: A cardinality- to follow instructions with human feedback. Adv Neural Inf Pro-
+based method for coupled estimation of jaccard similarity and cess Syst 35:27730–27744
+containment. In: 2019 IEEE 35th International Conference on 39. Peng B, Zhu Y, Liu Y et al (2024) Graph retrieval-augmented
+Data Engineering (ICDE), IEEE, pp 1190–1201 generation: A survey. arXiv preprint arXiv:2408.08921
+17. Hai R, Geisler S, Quix C (2016) Constance: An intelligent data 40. Procko TT, Ochoa O (2024) Graph retrieval-augmented genera-
+lake system. In: Proceedings of the 2016 international conference tion for large language models: A survey. In: 2024 Conference on
+on management of data, pp 2097–2100 AI, Science, Engineering, and Technology (AIxSET), IEEE, pp
+18. He X, Tian Y, Sun Y et al (2024) G-retriever: Retrieval-aug- 166–169
+mented generation for textual graph understanding and question 41. Rafailov R, Sharma A, Mitchell E et al (2024) Direct preference
+answering. arXiv preprint arXiv:2402.07630 optimization: Your language model is secretly a reward model.
+19. Helal A, Helali M, Ammar K et al (2021) A demonstration of Advances in Neural Information Processing Systems 36
+kglac: a data discovery and enrichment platform for data science. 42. Rosenfeld A, Richardson A (2019) Explainability in human-agent
+Proc VLDB Endow 14(12):2675–2678 systems. Auton Agent Multi-Agent Syst 33:673–705
+20. Honovich O, Scialom T, Levy O et al (2023) Unnatural instruc- 43. Sanmartin D (2024) Kg-rag: Bridging the gap between knowl-
+tions: Tuning language models with (almost) no human labor. edge and creativity. arXiv preprint arXiv:2405.12035
+In: Proceedings of the 61st Annual Meeting of the Association 44. Santos A, Bessa A, Musco C et al (2022) A sketch-based index
+for Computational Linguistics (Volume 1: Long Papers), pp for correlated dataset search. In: 2022 IEEE 38th International
+14409–14428 Conference on Data Engineering (ICDE), IEEE, pp 2928–2941
+21. Hoseini S, Theissen-Lipp J, Quix C (2024) A survey on semantic 45. Sawadogo P, Darmont J (2021) On data lake architectures and
+data management as intersection of ontology-based data access, metadata management. J Intell Inf Syst 56:97–120
+semantic modeling and data lakes. J Web Semant 81:100819 46. Schneider P, Afzal A, Vladika J et al (2023) Investigating con-
+22. Hu EJ, Shen Y, Wallis P et al (2022) LoRA: Low-rank adaptation versational search behavior for domain exploration. In: European
+of large language models. In: International Conference on Learn- Conference on Information Retrieval, Springer, pp 608–616
+ing Representations, h t t p s : / / o p e n r e v i e w . n e t / f o r u m ? i d = n Z e V K e e 47. Sha Y, Feng Y, He M et al (2023) Retrieval-augmented knowl-
+F Y f 9 edge graph reasoning for commonsense question answering.
+23. Hu Y, Lei Z, Zhang Z et al (2024) Grag: Graph retrieval-aug- Mathematics 11(15):3269
+mented generation. arXiv preprint arXiv:2405.16506 48. Shrivastava A, Li P (2015) Asymmetric minwise hashing for
+24. Huang L, Yu W, Ma W et al (2023) A survey on hallucination indexing binary inner products and set containment. In: Proceed-
+in large language models: Principles, taxonomy, challenges, and ings of the 24th international conference on world wide web, pp
+open questions. ACM Transactions on Information Systems 981–991
+25. Jia M, Tang L, Chen BC et al (2022) Visual prompt tuning. In: 49. Solmaz G, Cirillo F, Fürst J et al (2022) Enabling data spaces:
+European Conference on Computer Vision, Springer, pp 709–727 Existing developments and challenges. In: Proceedings of the 1st
+26. Kimball R (1996) The data warehouse toolkit: practical tech- International Workshop on Data Economy, pp 42–48
+niques for building dimensional data warehouses. John Wiley & 50. Song Y, Wang T, Cai P et al (2023) A comprehensive survey of
+Sons Inc few-shot learning: evolution, applications, challenges, and oppor-
+27. Krippendorff K (2011) Computing krippendorff’s alpha-reliabil- tunities. ACM Comput Surv 55(13s):1–40
+ity. Computing 1 51. Wei J, Bosma M, Zhao VY et al (2022) Finetuned language mod-
+28. Langegger A, Woss W (2009) Rdfstats-an extensible rdf statistics els are zero-shot learners. In: ICLR 2022 - 10th International
+generator and library. In: 2009 20th International Workshop on Conference on Learning Representations. International Confer-
+Database and Expert Systems Application, IEEE, pp 79–83 ence on Learning Representations, ICLR
+29. Leis V, Radke B, Gubichev A et al (2017) Cardinality estimation 52. Wei J, Wang X, Schuurmans D et al (2022) Chain-of-thought
+done right: Index-based join sampling. In: Cidr prompting elicits reasoning in large language models. Adv Neural
+Inf Process Syst 35:24824–24837
+1 3
+
+--- PAGE 23 ---
+52 C. Diamantini et al.
+53. Wilkinson MD, Dumontier M, Aalbersberg IJ et al (2016) The 56. Zhao Y, Ravat F, Aligon J et al (2021) Analysis-oriented metadata
+fair guiding principles for scientific data management and stew- for data lakes. In: Proceedings of the 25th International Database
+ardship. scientific data 3 (2016). Number 1:160018 Engineering & Applications Symposium, pp 194–203
+54. Xu Z, Cruz MJ, Guevara M et al (2024) Retrieval-augmented 57. Zhu E, Nargesian F, Pu KQ et al (2016) Lsh ensemble: internet-
+generation with knowledge graphs for customer service ques- scale domain search. Proc VLDB Endow 9(12):1185–1196
+tion answering. In: Proceedings of the 47th International ACM 58. Zhu E, Deng D, Nargesian F et al (2019) Josie: Overlap set simi-
+SIGIR Conference on Research and Development in Information larity search for finding joinable tables in data lakes. In: Proceed-
+Retrieval, pp 2905–2909 ings of the 2019 International Conference on Management of
+55. Yao S, Zhao J, Yu D et al (2023) React: Synergizing reasoning Data, pp 847–864
+and acting in language models. In: International Conference on
+Learning Representations (ICLR)
+1 3
+
