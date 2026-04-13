@@ -13,7 +13,7 @@ Frontend (Next.js 16 / React 19)  ←──WebSocket──→  Backend (FastAPI 
         ├── Web Audio API (visualizer)                   ├── MusicBrainz REST (artist IDs)
         └── PTT audio capture (16kHz PCM)                ├── Last.fm API (similar music)
                                                          ├── ListenBrainz API (recommendations)
-                                                         ├── edge-tts (text-to-speech)
+                                                         ├── Gemini Native Audio API (text-to-speech)
                                                          ├── Faster-Whisper (speech-to-text)
                                                          └── LLM (Gemini or Ollama)
 ```
@@ -29,7 +29,7 @@ The core of EchoDJ is a **LangGraph** state machine with 7 specialized nodes:
 | **Discoverer** | Finds tracks you'll enjoy via Last.fm/ListenBrainz |
 | **Curator** | Merges candidates, applies rules, selects the next track |
 | **Scriptwriter** | Generates a DJ liner with personality |
-| **Vocalizer** | Converts the script to speech via edge-tts |
+| **Vocalizer** | Converts the script to speech via Gemini 2.0 Native Audio |
 | **Broadcast** | Ducks music, plays DJ audio, advances to next track |
 
 ## Prerequisites
@@ -85,7 +85,7 @@ python -m venv .venv
 # source .venv/bin/activate  # macOS/Linux
 
 pip install -e ".[dev]"
-pytest tests/ -v           # Verify 89 tests pass
+pytest tests/ -v           # Verify 125 tests pass
 uvicorn echodj.server:app --reload --port 8000
 ```
 
@@ -143,7 +143,7 @@ ECHODJ_WHISPER_MODEL=base
 | Backend | FastAPI, LangGraph, Python 3.12+ |
 | LLM | Gemini 2.0 Flash or Ollama (local) |
 | STT | Faster-Whisper (local GPU) |
-| TTS | edge-tts (Microsoft Neural Voices) |
+| TTS | Gemini 2.0 Native Audio / edge-tts (fallback) |
 | Knowledge | Wikidata SPARQL, MusicBrainz REST |
 | Discovery | Last.fm, ListenBrainz |
 | Persistence | SQLite (LangGraph checkpointer + memory) |
