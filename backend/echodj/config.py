@@ -69,10 +69,16 @@ class Settings(BaseSettings):
 
 
     # ------------------------------------------------------------------
-    # TTS — edge-tts voice selection
+    # TTS — Provider and voice selection
     # Spec §5.6
     # ------------------------------------------------------------------
+    echodj_tts_provider: Literal["edge", "gemini"] = "gemini"
+    
+    # edge-tts voice config
     echodj_tts_voice: str = "en-US-GuyNeural"
+    
+    # Gemini voice config (Puck, Charon, Kore, Fenrir, Aoede)
+    echodj_gemini_voice: str = "Puck"
 
     # ------------------------------------------------------------------
     # STT — Faster-Whisper configuration
