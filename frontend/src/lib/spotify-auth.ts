@@ -25,8 +25,11 @@ const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const REDIRECT_URI = 'http://127.0.0.1:3000/callback';
 
 // Spec §11.2: Required scopes
+// user-read-email + user-read-private are required by Web Playback SDK
 const SCOPES = [
   'streaming',                      // Web Playback SDK
+  'user-read-email',                // Required by Web Playback SDK
+  'user-read-private',              // Required by Web Playback SDK
   'user-modify-playback-state',     // Queue tracks, skip, volume
   'user-read-playback-state',       // Read current track state
   'user-read-currently-playing',    // Observer node
@@ -62,7 +65,7 @@ export async function initiateSpotifyAuth(clientId: string): Promise<void> {
     scope: SCOPES,
     code_challenge_method: 'S256',
     code_challenge: code_challenge,
-    show_dialog: 'false',
+    show_dialog: 'true',
   }).toString();
 
   window.location.href = authUrl.toString();
