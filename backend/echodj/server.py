@@ -325,13 +325,21 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         while True:
             message = await websocket.receive()
 
-            if "text" in message:
+            if message["type"] == "websocket.disconnect":
+                break
+            elif "text" in message:
                 await _handle_text_message(session, message["text"])
             elif "bytes" in message:
                 await _handle_binary_message(session, message["bytes"])
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: session=%s", session.session_id)
+    except RuntimeError as e:
+        # Starlette raises RuntimeError when calling receive after disconnect
+        if "disconnect" in str(e).lower():
+            logger.info("WebSocket already disconnected: session=%s", session.session_id)
+        else:
+            logger.exception("WebSocket runtime error: session=%s", session.session_id)
     except Exception:
         logger.exception("WebSocket error: session=%s", session.session_id)
     finally:

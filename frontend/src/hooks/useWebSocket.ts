@@ -6,7 +6,7 @@
  * message type routing.
  *
  * References:
- *   - Spec §7.1 (Transport — ws://localhost:8000/ws)
+ *   - Spec §7.1 (Transport — ws://127.0.0.1:8000/ws)
  *   - Spec §7.2 (Connection Lifecycle — heartbeat, reconnect)
  *   - Spec §7.3 (Message Types)
  */
@@ -45,115 +45,130 @@ export function useWebSocket(accessToken: string | null): UseWebSocketReturn {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageHandlerRef = useRef<((msg: ServerMessage) => void) | null>(null);
   const binaryHandlerRef = useRef<((data: ArrayBuffer) => void) | null>(null);
+  // Use a ref for the token so the effect doesn't re-run when token changes
+  const accessTokenRef = useRef(accessToken);
+  // Track whether this hook is still mounted (prevents reconnect after unmount)
+  const mountedRef = useRef(true);
 
-  const connect = useCallback(() => {
-    if (!accessToken) return;
-
-    // Clean up any existing connection
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-
-    setConnectionState('connecting');
-
-    // Spec §7.2: Pass token as query parameter
-    const ws = new WebSocket(`${WS_URL}?token=${encodeURIComponent(accessToken)}`);
-    wsRef.current = ws;
-
-    ws.binaryType = 'arraybuffer';
-
-    ws.onopen = () => {
-      console.log('[WS] Connected');
-      reconnectDelayRef.current = INITIAL_RECONNECT_DELAY_MS;
-
-      // Start heartbeat (Spec §7.2: ping every 30s)
-      heartbeatRef.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ping' }));
-        }
-      }, HEARTBEAT_INTERVAL_MS);
-    };
-
-    ws.onmessage = (event: MessageEvent) => {
-      if (event.data instanceof ArrayBuffer) {
-        // Binary message — DJ audio (Spec §7.3)
-        binaryHandlerRef.current?.(event.data);
-        return;
-      }
-
-      try {
-        const msg: ServerMessage = JSON.parse(event.data as string);
-        setLastMessage(msg);
-
-        // Handle connection confirmation
-        if (msg.type === 'connected') {
-          setSessionId(msg.session_id);
-          setConnectionState('connected');
-          console.log('[WS] Session:', msg.session_id);
-        }
-
-        // Forward to registered handler
-        messageHandlerRef.current?.(msg);
-      } catch (e) {
-        console.error('[WS] Failed to parse message:', e);
-      }
-    };
-
-    ws.onclose = (event) => {
-      console.log('[WS] Disconnected:', event.code, event.reason);
-      setConnectionState('reconnecting');
-      cleanup();
-
-      // Spec §7.2: Exponential backoff reconnect
-      if (event.code !== 4001) { // Don't reconnect on auth failure
-        scheduleReconnect();
-      } else {
-        setConnectionState('disconnected');
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('[WS] Error:', error);
-    };
+  // Keep the ref in sync
+  useEffect(() => {
+    accessTokenRef.current = accessToken;
   }, [accessToken]);
 
-  const cleanup = useCallback(() => {
-    if (heartbeatRef.current) {
-      clearInterval(heartbeatRef.current);
-      heartbeatRef.current = null;
-    }
-  }, []);
-
-  const scheduleReconnect = useCallback(() => {
-    const delay = reconnectDelayRef.current;
-    console.log(`[WS] Reconnecting in ${delay}ms`);
-
-    reconnectTimerRef.current = setTimeout(() => {
-      // Exponential backoff: 1s, 2s, 4s, 8s, ..., max 30s
-      reconnectDelayRef.current = Math.min(
-        reconnectDelayRef.current * 2,
-        MAX_RECONNECT_DELAY_MS,
-      );
-      connect();
-    }, delay);
-  }, [connect]);
-
-  // Connect when access token becomes available
+  // Single stable connection effect — only runs on mount/unmount
   useEffect(() => {
-    if (accessToken) {
-      connect();
+    mountedRef.current = true;
+    let ws: WebSocket | null = null;
+
+    function cleanupHeartbeat() {
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
     }
 
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      cleanup();
+    function clearReconnectTimer() {
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    }
+
+    function doConnect() {
+      const token = accessTokenRef.current;
+      if (!token || !mountedRef.current) return;
+
+      // Close any existing connection cleanly
+      if (wsRef.current) {
+        wsRef.current.onclose = null; // Prevent reconnect from cleanup
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      cleanupHeartbeat();
+
+      setConnectionState('connecting');
+
+      ws = new WebSocket(`${WS_URL}?token=${encodeURIComponent(token)}`);
+      ws.binaryType = 'arraybuffer';
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (!mountedRef.current) return;
+        console.log('[WS] Connected');
+        reconnectDelayRef.current = INITIAL_RECONNECT_DELAY_MS;
+
+        // Start heartbeat (Spec §7.2: ping every 30s)
+        heartbeatRef.current = setInterval(() => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, HEARTBEAT_INTERVAL_MS);
+      };
+
+      ws.onmessage = (event: MessageEvent) => {
+        if (event.data instanceof ArrayBuffer) {
+          binaryHandlerRef.current?.(event.data);
+          return;
+        }
+
+        try {
+          const msg: ServerMessage = JSON.parse(event.data as string);
+          setLastMessage(msg);
+
+          if (msg.type === 'connected') {
+            setSessionId(msg.session_id);
+            setConnectionState('connected');
+            console.log('[WS] Session:', msg.session_id);
+          }
+
+          messageHandlerRef.current?.(msg);
+        } catch (e) {
+          console.error('[WS] Failed to parse message:', e);
+        }
+      };
+
+      ws.onclose = (event) => {
+        if (!mountedRef.current) return;
+        console.log('[WS] Disconnected:', event.code, event.reason);
+        setConnectionState('reconnecting');
+        cleanupHeartbeat();
+
+        // Spec §7.2: Don't reconnect on auth failure
+        if (event.code === 4001) {
+          setConnectionState('disconnected');
+          return;
+        }
+
+        // Exponential backoff reconnect
+        const delay = reconnectDelayRef.current;
+        console.log(`[WS] Reconnecting in ${delay}ms`);
+        reconnectDelayRef.current = Math.min(delay * 2, MAX_RECONNECT_DELAY_MS);
+        reconnectTimerRef.current = setTimeout(doConnect, delay);
+      };
+
+      ws.onerror = (error) => {
+        console.error('[WS] Error:', error);
+      };
+    }
+
+    // Only connect if we have a token
+    if (accessToken) {
+      doConnect();
+    }
+
+    // Cleanup on unmount only
+    return () => {
+      mountedRef.current = false;
+      clearReconnectTimer();
+      cleanupHeartbeat();
+      if (wsRef.current) {
+        wsRef.current.onclose = null; // Prevent reconnect from cleanup
+        wsRef.current.close();
+        wsRef.current = null;
       }
     };
-  }, [accessToken, connect, cleanup]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
 
   const sendMessage = useCallback((message: ClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
