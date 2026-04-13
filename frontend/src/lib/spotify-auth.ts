@@ -1,12 +1,19 @@
 /**
  * Spotify OAuth 2.0 Authorization Code Flow with PKCE
+ * 
+ * Based on Spotify's official example, adapted for Next.js.
+ * PKCE challenge generation is done server-side via /api/auth/pkce
+ * to work around crypto.subtle being unavailable on http://127.0.0.1.
+ *
+ * Spotify 2025 redirect_uri rules:
+ *   - HTTPS required for non-loopback
+ *   - http://127.0.0.1:PORT allowed (loopback exception)
+ *   - "localhost" is NOT allowed
  *
  * References:
  *   - Spec §11 (Spotify Authentication & Token Lifecycle)
  *   - Spec §11.2 (Required Scopes)
- *
- * PKCE is used because the client-side Next.js app cannot safely store
- * a client secret (Spec §11.1).
+ *   - https://github.com/spotify/web-api-examples/tree/master/authorization/authorization_code_pkce
  */
 
 // ── Configuration ──────────────────────────────────────────────────────────
@@ -14,8 +21,7 @@
 const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize';
 const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
 
-// 127.0.0.1 with http is explicitly allowed by Spotify for local development
-// (unlike http://localhost which Spotify blocks as insecure)
+// Spotify requires loopback IP (not "localhost") for HTTP redirect URIs
 const REDIRECT_URI = 'http://127.0.0.1:3000/callback';
 
 // Spec §11.2: Required scopes
@@ -28,66 +34,43 @@ const SCOPES = [
   'user-read-recently-played',      // Fallback history source
 ].join(' ');
 
-// ── PKCE Helpers ───────────────────────────────────────────────────────────
-
-/**
- * Generate a random code verifier for PKCE.
- * Must be 43-128 characters of [A-Za-z0-9-._~].
- */
-function generateCodeVerifier(length = 64): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-  const values = crypto.getRandomValues(new Uint8Array(length));
-  return Array.from(values, (v) => chars[v % chars.length]).join('');
-}
-
-/**
- * Generate the code challenge from the verifier using SHA-256.
- */
-async function generateCodeChallenge(verifier: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
-
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /**
  * Initiate the Spotify OAuth PKCE authorization flow.
- * Redirects the user to Spotify's authorization page.
- *
- * @param clientId - The Spotify application client ID
+ * 
+ * Fetches PKCE code_verifier and code_challenge from the server-side
+ * API route (/api/auth/pkce) to avoid needing crypto.subtle in the browser.
+ * Then redirects the user to Spotify's authorization page.
  */
 export async function initiateSpotifyAuth(clientId: string): Promise<void> {
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  // Generate PKCE pair server-side (bypasses crypto.subtle restriction)
+  const pkceResponse = await fetch('/api/auth/pkce');
+  if (!pkceResponse.ok) {
+    throw new Error('Failed to generate PKCE challenge');
+  }
+  const { code_verifier, code_challenge } = await pkceResponse.json();
 
   // Store verifier for the callback to use
-  sessionStorage.setItem('spotify_code_verifier', codeVerifier);
+  localStorage.setItem('spotify_code_verifier', code_verifier);
 
-  const params = new URLSearchParams({
+  const authUrl = new URL(SPOTIFY_AUTH_URL);
+  authUrl.search = new URLSearchParams({
     client_id: clientId,
     response_type: 'code',
     redirect_uri: REDIRECT_URI,
     scope: SCOPES,
     code_challenge_method: 'S256',
-    code_challenge: codeChallenge,
+    code_challenge: code_challenge,
     show_dialog: 'false',
-  });
+  }).toString();
 
-  window.location.href = `${SPOTIFY_AUTH_URL}?${params.toString()}`;
+  window.location.href = authUrl.toString();
 }
 
 /**
  * Exchange the authorization code for access and refresh tokens.
  * Called from the /callback page after Spotify redirects back.
- *
- * @param code - The authorization code from the callback URL
- * @param clientId - The Spotify application client ID
- * @returns The token response including access_token, refresh_token, and expires_in
  */
 export async function exchangeCodeForTokens(
   code: string,
@@ -97,7 +80,7 @@ export async function exchangeCodeForTokens(
   refresh_token: string;
   expires_in: number;
 }> {
-  const codeVerifier = sessionStorage.getItem('spotify_code_verifier');
+  const codeVerifier = localStorage.getItem('spotify_code_verifier');
   if (!codeVerifier) {
     throw new Error('No code verifier found. Please restart the login flow.');
   }
@@ -120,7 +103,7 @@ export async function exchangeCodeForTokens(
   }
 
   // Clean up
-  sessionStorage.removeItem('spotify_code_verifier');
+  localStorage.removeItem('spotify_code_verifier');
 
   return response.json();
 }
@@ -128,10 +111,6 @@ export async function exchangeCodeForTokens(
 /**
  * Refresh the access token using the refresh token.
  * Spec §11.3: Triggered proactively at the 50-minute mark.
- *
- * @param refreshToken - The refresh token
- * @param clientId - The Spotify application client ID
- * @returns New token data
  */
 export async function refreshAccessToken(
   refreshToken: string,
