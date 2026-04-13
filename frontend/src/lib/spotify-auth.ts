@@ -14,11 +14,9 @@
 const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize';
 const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
 
-// Must match the redirect URI registered in the Spotify Developer Dashboard
-const REDIRECT_URI =
-  typeof window !== 'undefined'
-    ? `${window.location.origin}/callback`
-    : process.env.NEXT_PUBLIC_REDIRECT_URI || 'http://localhost:3000/callback';
+// 127.0.0.1 with http is explicitly allowed by Spotify for local development
+// (unlike http://localhost which Spotify blocks as insecure)
+const REDIRECT_URI = 'http://127.0.0.1:3000/callback';
 
 // Spec §11.2: Required scopes
 const SCOPES = [
