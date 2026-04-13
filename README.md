@@ -59,7 +59,16 @@ You'll need these API keys (see [docs/API_KEYS_SETUP.md](./docs/API_KEYS_SETUP.m
 | **Gemini API Key** | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | ✅ Yes (or use Ollama) |
 | **ListenBrainz Token** | [listenbrainz.org/settings](https://listenbrainz.org/settings/) | Optional |
 
-> **Spotify Dashboard Setup:** Create an app and set the **Redirect URI** to `http://localhost:3000/callback`. Check both "Web Playback SDK" and "Web API".
+> **Spotify Dashboard Setup:**
+> 1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+> 2. Check both **"Web Playback SDK"** and **"Web API"**
+> 3. Set the **Redirect URI** to `http://127.0.0.1:3000/callback`
+>
+> ⚠️ **Important (2025 Spotify API Changes):**
+> - Spotify no longer allows `localhost` in redirect URIs — you **must** use the loopback IP `http://127.0.0.1:3000/callback`
+> - Apps in **Development Mode** require all users to be manually added to the **User Management** allowlist in the dashboard (up to 25 users)
+> - To add a user: Dashboard → Your App → **User Management** → enter their Spotify email → click **Add**
+> - The Web Playback SDK requires a **Spotify Premium** account
 
 ### 3. Configure Environment
 
@@ -99,7 +108,9 @@ npm run dev
 
 ### 6. Open & Connect
 
-Navigate to **http://localhost:3000**, log in with your Spotify Premium account, and start listening. The DJ will take over between tracks.
+Navigate to **http://127.0.0.1:3000**, log in with your Spotify Premium account, and start listening. The DJ will take over between tracks.
+
+> **Note:** You must access the app via `http://127.0.0.1:3000` (not `localhost`) to match the redirect URI registered with Spotify.
 
 ## Using Ollama (Local LLM)
 
