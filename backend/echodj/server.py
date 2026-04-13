@@ -124,7 +124,18 @@ class ConnectionManager:
             )
 
             session.store = get_sqlite_store()
-            checkpointer = await get_sqlite_checkpointer()
+
+            # AsyncSqliteSaver.from_conn_string returns a context manager;
+            # enter it and keep the saver for the session lifetime.
+            try:
+                checkpointer_cm = get_sqlite_checkpointer()
+                checkpointer = await checkpointer_cm.__aenter__()
+                session._checkpointer_cm = checkpointer_cm  # prevent GC
+            except Exception as cp_err:
+                logger.warning("SQLite checkpointer failed (%s), using MemorySaver", cp_err)
+                from langgraph.checkpoint.memory import MemorySaver
+                checkpointer = MemorySaver()
+
             session.compiled_graph = build_graph(
                 spotify=spotify,
                 send_json=lambda data: self._send_json_ws(websocket, data),

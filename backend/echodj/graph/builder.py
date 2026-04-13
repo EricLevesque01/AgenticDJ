@@ -214,11 +214,11 @@ def get_sqlite_store() -> Any:
     return InMemoryStore()
 
 
-async def get_sqlite_checkpointer() -> AsyncSqliteSaver:
+def get_sqlite_checkpointer():
     """Create and return an AsyncSqliteSaver for LangGraph thread state.
 
     Spec §10.3: SQLite for cross-session graph checkpoint persistence.
-    Returns a context manager that must be used with `async with`.
+    Returns a context manager — use `async with` or `__aenter__` to get the saver.
     """
     data_dir = settings.echodj_sessions_db.parent
     data_dir.mkdir(parents=True, exist_ok=True)
