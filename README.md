@@ -20,17 +20,73 @@ Frontend (Next.js 16 / React 19)  ←──WebSocket──→  Backend (FastAPI 
 
 ### 7-Node Agent Loop
 
-The core of EchoDJ is a **LangGraph** state machine with 7 specialized nodes:
+The core of EchoDJ is a **LangGraph** state machine with 7 specialized nodes that orchestrate the DJ experience:
 
-| Node | Role |
-|------|------|
-| **Observer** | Monitors playback, captures voice commands |
-| **Historian** | Finds trivia links between artists via Wikidata/MusicBrainz |
-| **Discoverer** | Finds tracks you'll enjoy via Last.fm/ListenBrainz |
-| **Curator** | Merges candidates, applies rules, selects the next track |
-| **Scriptwriter** | Generates a DJ liner with personality |
-| **Vocalizer** | Converts the script to speech via Gemini 2.0 Native Audio |
-| **Broadcast** | Ducks music, plays DJ audio, advances to next track |
+```mermaid
+flowchart TD
+    subgraph LOOP["♻️ Continuous Agent Loop"]
+        direction TB
+        OBS["🎧 Observer\n─────────\nMonitors playback state\nDetects track endings\nCaptures PTT voice input"]
+
+        OBS -->|"track ending\n(normal transition)"| ROUTE{"🔀 Route"}
+        OBS -->|"PTT interrupt\n(user speaks)"| CUR
+
+        ROUTE -->|parallel| HIST["📜 Historian\n─────────\nQueries Wikidata SPARQL\nResolves via MusicBrainz\nFinds artist trivia links"]
+        ROUTE -->|parallel| DISC["🔍 Discoverer\n─────────\nLast.fm similar tracks\nListenBrainz recommendations\nUser top tracks / history"]
+
+        HIST --> CUR["🎯 Curator\n─────────\nMerges candidate lists\nApplies diversity rules\nSelects final next track"]
+        DISC --> CUR
+
+        CUR --> SW["✍️ Scriptwriter\n─────────\nGenerates DJ liner script\n15-20s personality-driven\nIncludes trivia + transition"]
+        SW --> VOC["🗣️ Vocalizer\n─────────\nedge-tts speech synthesis\nGenerates DJ audio clip"]
+        VOC --> BC["📡 Broadcast\n─────────\nDucks music volume\nStreams DJ audio to client\nQueues + plays next track"]
+        BC -->|"loop back"| OBS
+
+        CUR -.->|"every 10 tracks"| MEM["💾 Memory Manager\n─────────\nCondenses session data\nUpdates Listener Profile\nPersists to LangGraph Store"]
+        MEM -.-> CUR
+    end
+
+    style OBS fill:#4a90d9,color:#fff,stroke:#2c5f8a
+    style HIST fill:#e67e22,color:#fff,stroke:#b35f16
+    style DISC fill:#27ae60,color:#fff,stroke:#1e8449
+    style CUR fill:#8e44ad,color:#fff,stroke:#6c3483
+    style SW fill:#f39c12,color:#fff,stroke:#b37400
+    style VOC fill:#1abc9c,color:#fff,stroke:#148f77
+    style BC fill:#e74c3c,color:#fff,stroke:#b33a2c
+    style MEM fill:#7f8c8d,color:#fff,stroke:#5d6d6e
+    style ROUTE fill:#34495e,color:#fff,stroke:#2c3e50
+    style LOOP fill:#1a1a2e11,stroke:#4a90d9,stroke-width:2px
+```
+
+### Execution Modes
+
+**Normal Transition** — when a track is about to end:
+```
+Observer → [Historian ∥ Discoverer] → Curator → Scriptwriter → Vocalizer → Broadcast → Observer
+```
+
+**PTT Interrupt** — when the user speaks mid-song:
+```
+Observer → Curator (re-route based on voice command) → Scriptwriter → Vocalizer → Broadcast → Observer
+```
+
+**Memory Checkpoint** — every 10 tracks:
+```
+Curator → Memory Manager → Curator (enriched with long-term preferences)
+```
+
+### Node Details
+
+| Node | Role | Data Sources |
+|:-----|:-----|:-------------|
+| **Observer** | Monitors Spotify playback state, captures PTT audio, detects track endings | Spotify SDK events, browser microphone |
+| **Historian** | Finds trivia links between consecutive artists via knowledge graph | Wikidata SPARQL, MusicBrainz REST |
+| **Discoverer** | Finds tracks the user will enjoy via collaborative filtering | Last.fm, ListenBrainz, Spotify user profile |
+| **Curator** | Merges candidate lists, applies diversity rules, selects final track | Historian + Discoverer outputs, LangGraph Store |
+| **Scriptwriter** | Generates a personality-driven spoken liner (15–20s) | Trivia link, track metadata, LLM |
+| **Vocalizer** | Converts script to speech audio | edge-tts |
+| **Broadcast** | Signals frontend to duck music, streams DJ audio, queues next track | WebSocket to frontend |
+| **Memory Manager** | Condenses session data into persistent Listener Profile | LangGraph Store (SQLite) |
 
 ## Prerequisites
 
