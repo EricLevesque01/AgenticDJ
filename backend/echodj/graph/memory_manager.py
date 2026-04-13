@@ -253,12 +253,19 @@ async def _update_profile_with_llm(
             if cleaned.startswith("json"):
                 cleaned = cleaned[4:]
         updated = json.loads(cleaned)
-        # Filter to only known profile keys — TypedDict is just dict at runtime
+        
+        # Merge valid keys into existing profile to prevent data loss
+        merged = existing.copy()
         valid_keys = set(ListenerProfile.__annotations__.keys())
-        filtered: ListenerProfile = {  # type: ignore[typeddict-item]
-            k: v for k, v in updated.items() if k in valid_keys
-        }
-        return filtered
+        for k, v in updated.items():
+            if k in valid_keys:
+                merged[k] = v  # type: ignore[literal-required]
+                
+        # Always refresh timestamp
+        from datetime import datetime, timezone
+        merged["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        return merged
     except Exception:
         logger.warning("Memory Manager: failed to parse LLM profile update, keeping existing")
         return existing
