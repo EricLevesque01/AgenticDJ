@@ -18,7 +18,7 @@ const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const REDIRECT_URI =
   typeof window !== 'undefined'
     ? `${window.location.origin}/callback`
-    : 'http://localhost:3000/callback';
+    : process.env.NEXT_PUBLIC_REDIRECT_URI || 'http://localhost:3000/callback';
 
 // Spec §11.2: Required scopes
 const SCOPES = [
