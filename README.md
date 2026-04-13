@@ -4,6 +4,26 @@ An agentic, personalized AI radio station built on the Spotify ecosystem.
 
 EchoDJ replicates the lean-back experience of a traditional radio station by choosing songs based on your deep listening history and speaking between tracks like a real DJ. Unlike static playlists, EchoDJ is **agentic**: it reasons over knowledge graphs to find trivia links between songs, discovers new music through collaborative filtering, and responds to real-time voice commands.
 
+## 🌟 How It Works (Presentation Overview)
+
+If you're presenting EchoDJ, here is the high-level breakdown of the magic happening behind the scenes:
+
+### The Problem EchoDJ Solves
+Traditional playlists are static, predictable, and lack personality. Real radio provides a human element and context between tracks, but plays music targeted at a broad demographic. **EchoDJ bridges the gap** by delivering a hyper-personalized radio experience hosted by an AI DJ who actually knows their music history.
+
+### The Magic 🪄
+1. **GraphRAG (Retrieval-Augmented Generation via Knowledge Graphs)**: Instead of just guessing the next song via an LLM, EchoDJ queries live knowledge bases (Wikidata and MusicBrainz) to find verifiable, fun trivia links between the song currently playing and the next song in the queue (e.g., finding out that two artists from different eras share the same hometown or collaborated on a niche movie soundtrack).
+2. **Multi-Agent Orchestration**: It takes a village to run a radio station. EchoDJ is powered by a 7-node LangGraph state machine. There's a Historian agent unearthing trivia, a Discoverer finding new tracks, a Curator building the playlist, and a Scriptwriter writing the DJ banter. 
+3. **Walkie-Talkie Interruption (PTT)**: The radio responds to *you*. Hold a button to interrupt the DJ with a real-time voice command. The Observer agent captures your 16kHz PCM audio, transcribes it, and dynamically reroutes the agent pipeline to answer your question or change the vibe without missing a beat.
+
+### The Listener Experience
+1. 🎧 **Listen**: You log in with Spotify Premium and play a song in our Web interface.
+2. ⏳ **Anticipate**: As the track nears its end (~30 seconds left), the Background Agent Loop wakes up.
+3. 🧠 **Curate**: The agents fetch recommendations, connect them via trivia, rank them based on your long-term listening profile, and write a transition script.
+4. 🎙️ **Broadcast**: On the transition, the music seamlessly ducks in volume, the AI DJ (using Gemini Native Audio or edge-tts) speaks the curated trivia, and the next track drops perfectly.
+
+---
+
 ## Architecture
 
 ```
