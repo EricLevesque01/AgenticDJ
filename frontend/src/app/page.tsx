@@ -26,7 +26,7 @@ import type { CuratorReasoning, ServerMessage } from '@/lib/types';
 
 export default function DJPage() {
   const router = useRouter();
-  const { tokens, isAuthenticated } = useAuth();
+  const { tokens, isAuthenticated, isLoading } = useAuth();
   const player = useSpotifyPlayer(tokens?.access_token ?? null);
   const ws = useWebSocket(tokens?.access_token ?? null);
 
@@ -36,12 +36,12 @@ export default function DJPage() {
   const [curatorReasoning, setCuratorReasoning] = useState<CuratorReasoning | null>(null);
   const [isDJActive, setIsDJActive] = useState(false);
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated (only after auth has finished loading)
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   // Send playback state to backend at 1 Hz (Spec §7.3)
   useEffect(() => {
@@ -155,7 +155,7 @@ export default function DJPage() {
     }
   }, []);
 
-  if (!isAuthenticated) return null;
+  if (isLoading || !isAuthenticated) return null;
 
   return (
     <main className="dj-page">

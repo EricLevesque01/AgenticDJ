@@ -15,11 +15,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Clear any stale auth tokens when landing on the login page
-  // This prevents 'Invalid token scopes' errors from old sessions
+  // Only clear the PKCE verifier, NOT the auth tokens
+  // (the main page redirect might bring us here before tokens are hydrated)
   useState(() => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('echodj_auth');
       localStorage.removeItem('spotify_code_verifier');
     }
   });

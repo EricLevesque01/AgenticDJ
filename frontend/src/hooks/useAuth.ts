@@ -22,12 +22,14 @@ const REFRESH_BUFFER_MS = 10 * 60 * 1000; // 10 minutes
 export interface UseAuthReturn {
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   setTokens: (accessToken: string, refreshToken: string, expiresIn: number) => void;
   clearTokens: () => void;
 }
 
 export function useAuth(): UseAuthReturn {
   const [tokens, setTokensState] = useState<AuthTokens | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load tokens from localStorage on mount
@@ -45,6 +47,8 @@ export function useAuth(): UseAuthReturn {
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -136,6 +140,7 @@ export function useAuth(): UseAuthReturn {
   return {
     tokens,
     isAuthenticated: tokens !== null && tokens.expires_at > Date.now(),
+    isLoading,
     setTokens,
     clearTokens,
   };
