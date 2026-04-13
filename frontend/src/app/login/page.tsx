@@ -15,6 +15,15 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Clear any stale auth tokens when landing on the login page
+  // This prevents 'Invalid token scopes' errors from old sessions
+  useState(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('echodj_auth');
+      localStorage.removeItem('spotify_code_verifier');
+    }
+  });
+
   const handleLogin = async () => {
     setIsLoading(true);
     setError(null);
